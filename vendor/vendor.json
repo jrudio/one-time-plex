@@ -1,0 +1,89 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"path": "context",
+			"revision": ""
+		},
+		{
+			"checksumSHA1": "hqDDDpue/5363luidNMBS8z8eJU=",
+			"path": "github.com/BurntSushi/toml",
+			"revision": "99064174e013895bbd9b025c31100bd1d9b590ca",
+			"revisionTime": "2016-07-17T15:07:09Z"
+		},
+		{
+			"checksumSHA1": "yXrS4e4yxaRBu/MX+39X3cS4kbg=",
+			"path": "github.com/Sirupsen/logrus",
+			"revision": "a283a10442df8dc09befd873fab202bf8a253d6a",
+			"revisionTime": "2016-07-16T02:56:31Z"
+		},
+		{
+			"checksumSHA1": "g3e51FjXOhQovqUS2T2DoNAz3VU=",
+			"path": "github.com/labstack/echo",
+			"revision": "50fed083a734a56786826cd579a0867b97a1995c",
+			"revisionTime": "2016-08-02T20:11:12Z"
+		},
+		{
+			"checksumSHA1": "2Mz/839MjqrCexm8fj0QrpirGmg=",
+			"path": "github.com/labstack/echo/engine",
+			"revision": "50fed083a734a56786826cd579a0867b97a1995c",
+			"revisionTime": "2016-08-02T20:11:12Z"
+		},
+		{
+			"checksumSHA1": "9GNtCBHgbOtEQYFBuBcoBzhWVCE=",
+			"path": "github.com/labstack/echo/engine/standard",
+			"revision": "50fed083a734a56786826cd579a0867b97a1995c",
+			"revisionTime": "2016-08-02T20:11:12Z"
+		},
+		{
+			"checksumSHA1": "iDCjk9XfJyeiobpsw3E1UXXde/0=",
+			"path": "github.com/labstack/echo/log",
+			"revision": "50fed083a734a56786826cd579a0867b97a1995c",
+			"revisionTime": "2016-08-02T20:11:12Z"
+		},
+		{
+			"checksumSHA1": "CPh1wcGiIzRIsj1DzMdcviqbjMk=",
+			"path": "github.com/labstack/gommon/color",
+			"revision": "445cf40e6de4cbef35daf3285ff5212c91e78262",
+			"revisionTime": "2016-07-19T15:51:39Z"
+		},
+		{
+			"checksumSHA1": "DoRv9nHZpz0GSNmjN1U5k5KNkD0=",
+			"path": "github.com/labstack/gommon/log",
+			"revision": "445cf40e6de4cbef35daf3285ff5212c91e78262",
+			"revisionTime": "2016-07-19T15:51:39Z"
+		},
+		{
+			"checksumSHA1": "ZAlzPBSsaGe/k5pbISRQvSiVhfc=",
+			"path": "github.com/mattn/go-colorable",
+			"revision": "ed8eb9e318d7a84ce5915b495b7d35e0cfe7b5a8",
+			"revisionTime": "2016-07-31T23:54:17Z"
+		},
+		{
+			"checksumSHA1": "xZuhljnmBysJPta/lMyYmJdujCg=",
+			"path": "github.com/mattn/go-isatty",
+			"revision": "66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8",
+			"revisionTime": "2016-08-06T12:27:52Z"
+		},
+		{
+			"checksumSHA1": "PQy6kV2rK5B3qtCRpANzgRQPnFs=",
+			"path": "github.com/valyala/fasttemplate",
+			"revision": "3b874956e03f1636d171bda64b130f9135f42cff",
+			"revisionTime": "2016-03-15T19:31:34Z"
+		},
+		{
+			"checksumSHA1": "9jjO5GjLa0XF/nfWihF02RoH4qc=",
+			"path": "golang.org/x/net/context",
+			"revision": "075e191f18186a8ff2becaf64478e30f4545cdad",
+			"revisionTime": "2016-08-05T06:12:51Z"
+		},
+		{
+			"checksumSHA1": "8fD/im5Kwvy3JgmxulDTambmE8w=",
+			"path": "golang.org/x/sys/unix",
+			"revision": "a646d33e2ee3172a661fc09bca23bb4889a41bc8",
+			"revisionTime": "2016-07-15T05:43:45Z"
+		}
+	],
+	"rootPath": "github.com/jrudio/otp-reloaded"
+}
