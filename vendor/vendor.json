@@ -19,6 +19,12 @@
 			"revisionTime": "2016-07-16T02:56:31Z"
 		},
 		{
+			"checksumSHA1": "pkFGnzT4eXFZ8B9G/Bp8xI14mOY=",
+			"path": "github.com/jrudio/go-plex-client",
+			"revision": "7fcd727feee0d5024275c3b11066911376c215fc",
+			"revisionTime": "2016-08-14T04:15:44Z"
+		},
+		{
 			"checksumSHA1": "g3e51FjXOhQovqUS2T2DoNAz3VU=",
 			"path": "github.com/labstack/echo",
 			"revision": "50fed083a734a56786826cd579a0867b97a1995c",
@@ -67,10 +73,28 @@
 			"revisionTime": "2016-08-06T12:27:52Z"
 		},
 		{
+			"checksumSHA1": "F6eWi/7Yl/rcMg9h3PWsgYQQkf0=",
+			"path": "github.com/rs/xid",
+			"revision": "057f3c928c207d1e7e318929eeac93bb46e319e3",
+			"revisionTime": "2016-03-15T14:06:58Z"
+		},
+		{
 			"checksumSHA1": "PQy6kV2rK5B3qtCRpANzgRQPnFs=",
 			"path": "github.com/valyala/fasttemplate",
 			"revision": "3b874956e03f1636d171bda64b130f9135f42cff",
 			"revisionTime": "2016-03-15T19:31:34Z"
+		},
+		{
+			"checksumSHA1": "vE43s37+4CJ2CDU6TlOUOYE0K9c=",
+			"path": "golang.org/x/crypto/bcrypt",
+			"revision": "595bbbd7f5f308415a544d3c55743c91427c8d99",
+			"revisionTime": "2016-08-11T15:03:39Z"
+		},
+		{
+			"checksumSHA1": "JsJdKXhz87gWenMwBeejTOeNE7k=",
+			"path": "golang.org/x/crypto/blowfish",
+			"revision": "595bbbd7f5f308415a544d3c55743c91427c8d99",
+			"revisionTime": "2016-08-11T15:03:39Z"
 		},
 		{
 			"checksumSHA1": "9jjO5GjLa0XF/nfWihF02RoH4qc=",

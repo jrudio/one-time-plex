@@ -32,7 +32,7 @@ type PlexUser struct {
 type UserService interface {
 	User(id string) (*User, error)
 	Users() ([]*User, error)
-	CreateUser(u *User) error
+	CreateUser(u *User) (string, error)
 	DeleteUser(id string) error
 	ChangePassword(id, newPassword string) error
 	ChangeUsername(id, newName string) error

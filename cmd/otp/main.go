@@ -2,12 +2,12 @@ package main
 
 import (
 	log "github.com/Sirupsen/logrus"
+	"github.com/jrudio/go-plex-client"
 	"github.com/jrudio/otp-reloaded/http"
 	"github.com/jrudio/otp-reloaded/ledis"
 )
 
 func main() {
-	log.Info(config)
 	// open connection to database
 	db, err := ledis.Open()
 
@@ -18,12 +18,21 @@ func main() {
 	// create services
 	userSrvc := &ledis.UserService{DB: db}
 
+	var plexConn *plex.Plex
+	plexConn, err = plex.New(config.Plex.Host, config.Plex.Token)
+
+	if err != nil {
+		log.WithField("plex", "new").Fatal(err)
+	}
+
 	// attach to http handler
 	var h http.Handler
 	h.UserService = userSrvc
+	h.Plex = plexConn
 
 	endpoints := http.CreateEndpoints(h)
 
 	// start server
+	log.Info("serving One Time Plex at " + config.Host)
 	h.ServeHTTP(endpoints, config.Host)
 }
