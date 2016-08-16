@@ -17,7 +17,7 @@ type Handler struct {
 }
 
 type endpointResponse struct {
-	Err    string      `json:"error"`
+	Err    bool        `json:"error"`
 	Reason string      `json:"reason"`
 	Result interface{} `json:"result"`
 }
@@ -92,10 +92,16 @@ func (h Handler) createUser(c echo.Context) error {
 }
 
 func (h Handler) addUserToPMS(c echo.Context) error {
+	resp := endpointResponse{
+		Err: true,
+	}
+
 	ratingKey := c.FormValue("ratingKey")
 
 	if ratingKey == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "missing ratingKey")
+		// echo.NewHTTPError(http.StatusBadRequest, "missing ratingKey")
+		resp.Reason = "missing ratingKey"
+		return c.JSON(http.StatusBadRequest, resp)
 	}
 
 	plexPass := c.QueryParam("plexpass")
@@ -113,24 +119,30 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 		plexUsername = c.FormValue("plexUsername")
 
 		if plexUsername == "" {
-			return echo.NewHTTPError(http.StatusBadRequest, "missing plex username")
+			// return echo.NewHTTPError(http.StatusBadRequest, "missing plex username")
+			resp.Reason = "missing plex username"
+			return c.JSON(http.StatusBadRequest, resp)
 		}
 
 		// validate the username via Plex's validate endpoint
-		isValid, err := h.Plex.CheckUsernameOrEmail(plexUsername)
+		// isValid, err := h.Plex.CheckUsernameOrEmail(plexUsername)
 
-		if err != nil {
-			log.WithFields(log.Fields{
-				"endpoint":     c.Request().URI(),
-				"ratingKey":    ratingKey,
-				"plexUsername": plexUsername,
-			}).Error(err)
-			return echo.NewHTTPError(http.StatusBadRequest, "could not check plex username")
-		}
+		// if err != nil {
+		// 	log.WithFields(log.Fields{
+		// 		"endpoint":     c.Request().URI(),
+		// 		"ratingKey":    ratingKey,
+		// 		"plexUsername": plexUsername,
+		// 	}).Error(err)
+		// 	resp.Reason = "could not check plex username"
+		// 	return c.JSON(http.StatusBadRequest, resp)
+		// return echo.NewHTTPError(http.StatusBadRequest, "could not check plex username")
+		// }
 
-		if !isValid {
-			return echo.NewHTTPError(http.StatusBadRequest, "plex username is not valid")
-		}
+		// if !isValid {
+		// 	resp.Reason = "plex username is not valid"
+		// 	return c.JSON(http.StatusBadRequest, resp)
+		// return echo.NewHTTPError(http.StatusBadRequest, "plex username is not valid")
+		// }
 	}
 
 	// get library id of media via ratingKey
@@ -142,7 +154,9 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 			"ratingKey":    ratingKey,
 			"plexUsername": plexUsername,
 		}).Error(err)
-		return echo.NewHTTPError(http.StatusBadRequest, "could not grab information for key "+ratingKey)
+		resp.Reason = "could not grab information for key " + ratingKey
+		return c.JSON(http.StatusBadRequest, resp)
+		// return echo.NewHTTPError(http.StatusBadRequest, "could not grab information for key "+ratingKey)
 	}
 
 	libraryKey := mediaInfo.LibrarySectionID
@@ -160,7 +174,10 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 			"ratingKey":    ratingKey,
 			"plexUsername": plexUsername,
 		}).Error(err)
-		return echo.NewHTTPError(http.StatusBadRequest, "could not grab the PMS machine id")
+		resp.Reason = "could not grab the PMS machine id"
+		return c.JSON(http.StatusBadRequest, resp)
+
+		// return echo.NewHTTPError(http.StatusBadRequest, "could not grab the PMS machine id")
 	}
 
 	serverSections, err = h.Plex.GetSections(machineID)
@@ -172,7 +189,9 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 			"plexUsername": plexUsername,
 			"machine id:":  machineID,
 		}).Error(err)
-		return echo.NewHTTPError(http.StatusBadRequest, "could not get server sections")
+		resp.Reason = "could not get server sections"
+		return c.JSON(http.StatusBadRequest, resp)
+		// return echo.NewHTTPError(http.StatusBadRequest, "could not get server sections")
 	}
 
 	// get library id which is a required param to invite user
@@ -185,7 +204,9 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 	}
 
 	if libraryID == 0 {
-		return echo.NewHTTPError(http.StatusBadRequest, "could not get library id")
+		resp.Reason = "could not get library id"
+		return c.JSON(http.StatusBadRequest, resp)
+		// return echo.NewHTTPError(http.StatusBadRequest, "could not get library id")
 	}
 
 	// invite user to pms
@@ -210,7 +231,9 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 			"plexUsername": plexUsername,
 			"machine id":   machineID,
 		}).Error(err)
-		return echo.NewHTTPError(http.StatusBadRequest, "failed invite user")
+		resp.Reason = "failed invite user"
+		return c.JSON(http.StatusBadRequest, resp)
+		// return echo.NewHTTPError(http.StatusBadRequest, "failed invite user")
 	}
 
 	// monitor user
@@ -223,7 +246,8 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 	// 		"ratingKey":    ratingKey,
 	// 		"plexUsername": plexUsername,
 	// 	}).Error(err)
-
+	// resp.Reason = "failed to add user to monitor list"
+	// return c.JSON(http.StatusBadRequest, resp)
 	// 	return echo.NewHTTPError(http.StatusExpectationFailed, "failed to add user to PMS: "+err.Error())
 	// }
 
@@ -234,10 +258,13 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 			"plexUsername": plexUsername,
 		}).Debug("invite failed")
 
-		return echo.NewHTTPError(http.StatusExpectationFailed, "failed to add user to PMS")
-	}
+		resp.Reason = "failed to add user to PMS"
+		return c.JSON(http.StatusBadRequest, resp)
 
-	return c.JSON(http.StatusOK, endpointResponse{
-		Result: true,
-	})
+		// return echo.NewHTTPError(http.StatusExpectationFailed, "failed to add user to PMS")
+	}
+	resp.Err = false
+	resp.Result = true
+
+	return c.JSON(http.StatusOK, resp)
 }
