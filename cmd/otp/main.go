@@ -5,6 +5,7 @@ import (
 	"github.com/jrudio/go-plex-client"
 	"github.com/jrudio/otp-reloaded/http"
 	"github.com/jrudio/otp-reloaded/ledis"
+	"github.com/jrudio/otp-reloaded/monitor"
 )
 
 func main() {
@@ -17,6 +18,9 @@ func main() {
 
 	// create services
 	userSrvc := &ledis.UserService{DB: db}
+	plexMonitorSrvc := &monitor.PlexMonitorService{
+		DB: db,
+	}
 
 	var plexConn *plex.Plex
 	plexConn, err = plex.New(config.Plex.Host, config.Plex.Token)
@@ -28,6 +32,7 @@ func main() {
 	// attach to http handler
 	var h http.Handler
 	h.UserService = userSrvc
+	h.PlexMonitorService = plexMonitorSrvc
 	h.Plex = plexConn
 
 	endpoints := http.CreateEndpoints(h)

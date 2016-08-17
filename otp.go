@@ -1,5 +1,7 @@
 package otp
 
+import "github.com/jrudio/go-plex-client"
+
 // otp glues together the packages and sub-packages
 
 // the domain of this app entails:
@@ -45,4 +47,11 @@ type MediaRequestService interface {
 	CreateRequest(m *MediaRequest) error
 	DeleteRequest(id string) error
 	StopRequestInProgress(id string) error
+}
+
+// PlexMonitorService interfaces with the monitor package of jrudio/go-plex-client
+type PlexMonitorService interface {
+	Userlist() (map[int]plex.MonitoredUser, error)
+	User(id int) (plex.MonitoredUser, error)
+	AddUser(id int, ratingKey string) error
 }

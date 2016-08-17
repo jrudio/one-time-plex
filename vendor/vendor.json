@@ -19,7 +19,7 @@
 			"revisionTime": "2016-07-16T02:56:31Z"
 		},
 		{
-			"checksumSHA1": "dmu8dCkHvYMlXnN0wbR8KalQpoY=",
+			"checksumSHA1": "2jMgiAR8WmPSiLgYlTXrRuKlr7A=",
 			"path": "github.com/jrudio/go-plex-client",
 			"revision": "cc26fc3b62efef4bdd541b8f65031fc3aec555de",
 			"revisionTime": "2016-08-16T01:32:34Z"
@@ -71,6 +71,12 @@
 			"path": "github.com/mattn/go-isatty",
 			"revision": "66b8e73f3f5cda9f96b69efd03dd3d7fc4a5cdb8",
 			"revisionTime": "2016-08-06T12:27:52Z"
+		},
+		{
+			"checksumSHA1": "QoVjlQFru1ixgV8vh63T4/JAtLI=",
+			"path": "github.com/pkg/errors",
+			"revision": "a22138067af1c4942683050411a841ade67fe1eb",
+			"revisionTime": "2016-08-08T05:55:40Z"
 		},
 		{
 			"checksumSHA1": "F6eWi/7Yl/rcMg9h3PWsgYQQkf0=",

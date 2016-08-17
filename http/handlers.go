@@ -11,9 +11,10 @@ import (
 
 // Handler holds the endpoint handlers
 type Handler struct {
-	UserService  otp.UserService
-	MediaService otp.MediaRequestService
-	Plex         *plex.Plex
+	UserService        otp.UserService
+	MediaService       otp.MediaRequestService
+	PlexMonitorService otp.PlexMonitorService
+	Plex               *plex.Plex
 }
 
 type endpointResponse struct {
@@ -99,7 +100,6 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 	ratingKey := c.FormValue("ratingKey")
 
 	if ratingKey == "" {
-		// echo.NewHTTPError(http.StatusBadRequest, "missing ratingKey")
 		resp.Reason = "missing ratingKey"
 		return c.JSON(http.StatusBadRequest, resp)
 	}
@@ -119,7 +119,6 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 		plexUsername = c.FormValue("plexUsername")
 
 		if plexUsername == "" {
-			// return echo.NewHTTPError(http.StatusBadRequest, "missing plex username")
 			resp.Reason = "missing plex username"
 			return c.JSON(http.StatusBadRequest, resp)
 		}
@@ -135,13 +134,11 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 		// 	}).Error(err)
 		// 	resp.Reason = "could not check plex username"
 		// 	return c.JSON(http.StatusBadRequest, resp)
-		// return echo.NewHTTPError(http.StatusBadRequest, "could not check plex username")
 		// }
 
 		// if !isValid {
 		// 	resp.Reason = "plex username is not valid"
 		// 	return c.JSON(http.StatusBadRequest, resp)
-		// return echo.NewHTTPError(http.StatusBadRequest, "plex username is not valid")
 		// }
 	}
 
@@ -156,7 +153,6 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 		}).Error(err)
 		resp.Reason = "could not grab information for key " + ratingKey
 		return c.JSON(http.StatusBadRequest, resp)
-		// return echo.NewHTTPError(http.StatusBadRequest, "could not grab information for key "+ratingKey)
 	}
 
 	libraryKey := mediaInfo.LibrarySectionID
@@ -174,10 +170,9 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 			"ratingKey":    ratingKey,
 			"plexUsername": plexUsername,
 		}).Error(err)
+
 		resp.Reason = "could not grab the PMS machine id"
 		return c.JSON(http.StatusBadRequest, resp)
-
-		// return echo.NewHTTPError(http.StatusBadRequest, "could not grab the PMS machine id")
 	}
 
 	serverSections, err = h.Plex.GetSections(machineID)
@@ -191,7 +186,6 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 		}).Error(err)
 		resp.Reason = "could not get server sections"
 		return c.JSON(http.StatusBadRequest, resp)
-		// return echo.NewHTTPError(http.StatusBadRequest, "could not get server sections")
 	}
 
 	// get library id which is a required param to invite user
@@ -206,7 +200,6 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 	if libraryID == 0 {
 		resp.Reason = "could not get library id"
 		return c.JSON(http.StatusBadRequest, resp)
-		// return echo.NewHTTPError(http.StatusBadRequest, "could not get library id")
 	}
 
 	// invite user to pms
@@ -220,8 +213,8 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 		inviteParams.Label = plexUsername
 	}
 
-	var isFriendInvited bool
-	isFriendInvited, err = h.Plex.InviteFriend(inviteParams)
+	var plexFriendUserID int
+	plexFriendUserID, err = h.Plex.InviteFriend(inviteParams)
 
 	if err != nil {
 		log.Info("inviteFriend")
@@ -233,10 +226,11 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 		}).Error(err)
 		resp.Reason = "failed invite user"
 		return c.JSON(http.StatusBadRequest, resp)
-		// return echo.NewHTTPError(http.StatusBadRequest, "failed invite user")
 	}
 
 	// monitor user
+	// h.PlexMonitorService.AddUser(plexFriendUserID, ratingKey)
+	// h.PlexMonitorService.AddUser(1, 6)
 
 	// return success
 
@@ -248,10 +242,9 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 	// 	}).Error(err)
 	// resp.Reason = "failed to add user to monitor list"
 	// return c.JSON(http.StatusBadRequest, resp)
-	// 	return echo.NewHTTPError(http.StatusExpectationFailed, "failed to add user to PMS: "+err.Error())
 	// }
 
-	if !isFriendInvited {
+	if plexFriendUserID == 0 {
 		log.WithFields(log.Fields{
 			"endpoint":     c.Request().URI(),
 			"ratingKey":    ratingKey,
@@ -260,9 +253,8 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 
 		resp.Reason = "failed to add user to PMS"
 		return c.JSON(http.StatusBadRequest, resp)
-
-		// return echo.NewHTTPError(http.StatusExpectationFailed, "failed to add user to PMS")
 	}
+
 	resp.Err = false
 	resp.Result = true
 
