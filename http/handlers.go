@@ -229,7 +229,18 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 	}
 
 	// monitor user
-	// h.PlexMonitorService.AddUser(plexFriendUserID, ratingKey)
+	if err := h.PlexMonitorService.AddUser(plexFriendUserID, ratingKey); err != nil {
+		log.WithFields(log.Fields{
+			"endpoint":     c.Request().URI(),
+			"ratingKey":    ratingKey,
+			"plexUsername": plexUsername,
+			"machine id":   machineID,
+		}).Error(err)
+
+		resp.Reason = "failed to add user to monitor list"
+
+		return c.JSON(http.StatusExpectationFailed, resp)
+	}
 	// h.PlexMonitorService.AddUser(1, 6)
 
 	// return success
@@ -253,6 +264,23 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 
 		resp.Reason = "failed to add user to PMS"
 		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	resp.Err = false
+	resp.Result = true
+
+	return c.JSON(http.StatusOK, resp)
+}
+
+func (h Handler) startPlexMonitor(c echo.Context) error {
+	resp := endpointResponse{
+		Err: true,
+	}
+
+	if err := h.PlexMonitorService.Start(); err != nil {
+		resp.Reason = "failed to start plex monitor: " + err.Error()
+		c.JSON(http.StatusExpectationFailed, resp)
+		return nil
 	}
 
 	resp.Err = false

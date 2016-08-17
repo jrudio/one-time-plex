@@ -17,16 +17,17 @@ func main() {
 	}
 
 	// create services
-	userSrvc := &ledis.UserService{DB: db}
-	plexMonitorSrvc := &monitor.PlexMonitorService{
-		DB: db,
-	}
-
 	var plexConn *plex.Plex
 	plexConn, err = plex.New(config.Plex.Host, config.Plex.Token)
 
 	if err != nil {
 		log.WithField("plex", "new").Fatal(err)
+	}
+
+	userSrvc := &ledis.UserService{DB: db}
+	plexMonitorSrvc := &monitor.PlexMonitorService{
+		DB:   db,
+		Plex: plexConn,
 	}
 
 	// attach to http handler

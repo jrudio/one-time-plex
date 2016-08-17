@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	log "github.com/Sirupsen/logrus"
 	"github.com/jrudio/go-plex-client"
 	"github.com/pkg/errors"
 	"github.com/siddontang/ledisdb/ledis"
@@ -10,12 +11,26 @@ import (
 // PlexMonitorService will interface with PMS using any datastore
 type PlexMonitorService struct {
 	DB      *ledis.DB
-	Plex    plex.Plex
+	Plex    *plex.Plex
 	Monitor plex.Monitor
 }
 
+// Count returns a count of a monitored users
+func (p PlexMonitorService) Count() int {
+	userlistHashMap, err := p.DB.HGetAll([]byte("userlist"))
+
+	if err != nil {
+		log.WithField("list count", "failed to get list").Error(err)
+		return 0
+	}
+
+	userlistCount := len(userlistHashMap)
+
+	return userlistCount
+}
+
 // Userlist returns a map of monitored users
-func (p PlexMonitorService) Userlist() (map[int]plex.MonitoredUser, error) {
+func (p *PlexMonitorService) Userlist() (map[int]plex.MonitoredUser, error) {
 	userlistHashMap, err := p.DB.HGetAll([]byte("userlist"))
 
 	if err != nil {
@@ -23,8 +38,6 @@ func (p PlexMonitorService) Userlist() (map[int]plex.MonitoredUser, error) {
 	}
 
 	userlistCount := len(userlistHashMap)
-
-	p.Monitor.MonitorListCount = userlistCount
 
 	userlist := make(map[int]plex.MonitoredUser, userlistCount)
 
@@ -56,7 +69,7 @@ func (p PlexMonitorService) User(id int) (plex.MonitoredUser, error) {
 	var user plex.MonitoredUser
 
 	// make sure user exists
-	bytesWritten, err := p.DB.HKeyExists([]byte(idStr))
+	bytesWritten, err := p.DB.HKeyExists([]byte("plexUser:" + idStr))
 
 	if err != nil {
 		return user, errors.Wrap(err, "check existing user failed")
@@ -68,7 +81,7 @@ func (p PlexMonitorService) User(id int) (plex.MonitoredUser, error) {
 
 	// extract required fields
 	var fields [][]byte
-	fields, err = p.DB.HMget([]byte(idStr), []byte("ratingKey"), []byte("isTranscoding"), []byte("isDirectPlay"), []byte("killingSession"), []byte("killedSession"))
+	fields, err = p.DB.HMget([]byte("plexUser:"+idStr), []byte("ratingKey"), []byte("isTranscoding"), []byte("isDirectPlay"), []byte("killingSession"), []byte("killedSession"))
 
 	if err != nil {
 		return user, errors.Wrap(err, "failed to retrieve user")
@@ -89,7 +102,7 @@ func (p PlexMonitorService) AddUser(id int, ratingKey string) error {
 	idStr := strconv.Itoa(id)
 
 	// check for existing user
-	exists, err := p.DB.HKeyExists([]byte(idStr))
+	exists, err := p.DB.HKeyExists([]byte("plexUser:" + idStr))
 
 	if err != nil {
 		return errors.Wrap(err, "check existing user failed")
@@ -99,7 +112,7 @@ func (p PlexMonitorService) AddUser(id int, ratingKey string) error {
 		return errors.New("user already exists")
 	}
 
-	err = p.DB.HMset([]byte(idStr), ledis.FVPair{
+	err = p.DB.HMset([]byte("plexUser:"+idStr), ledis.FVPair{
 		Field: []byte("ratingKey"),
 		Value: []byte(ratingKey),
 	},
@@ -145,30 +158,30 @@ func (p PlexMonitorService) AddUser(id int, ratingKey string) error {
 	return nil
 }
 
-// SetUserField sets a field on a user
-func (p PlexMonitorService) SetUserField(id int, field string, value string) error {
+// RemoveUser removes a user from being monitored
+func (p PlexMonitorService) RemoveUser(id int) error {
+	return nil
+}
+
+// SetField sets a field on a user
+func (p PlexMonitorService) SetField(id int, field string, value string) error {
 	idStr := strconv.Itoa(id)
 
 	// check for existing user
-	exists, err := p.DB.HKeyExists([]byte(idStr))
+	exists, err := p.DB.HKeyExists([]byte("plexUser:" + idStr))
 
 	if err != nil {
 		return errors.Wrap(err, "check existing user failed")
 	}
 
-	if exists > 0 {
-		return errors.New("user already exists")
+	if exists < 1 {
+		return errors.New("user doesn't exist")
 	}
 
-	var bytesWritten int64
-	bytesWritten, err = p.DB.HSet([]byte(idStr), []byte(field), []byte(value))
+	_, err = p.DB.HSet([]byte("plexUser:"+idStr), []byte(field), []byte(value))
 
 	if err != nil {
 		return errors.Wrap(err, "failed to set user field")
-	}
-
-	if bytesWritten < 1 {
-		return errors.New("failed to set user field")
 	}
 
 	return nil
@@ -185,9 +198,9 @@ func (p *PlexMonitorService) Start() error {
 	}
 
 	p.Monitor = plex.Monitor{
-		Interval:    1500,
-		MonitorList: p.Userlist,
-		SetField:    p.SetUserField,
+		Interval: 1500,
+		Userlist: p,
+		PlexConn: p.Plex,
 	}
 
 	p.Monitor.Start()

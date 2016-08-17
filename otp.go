@@ -54,4 +54,7 @@ type PlexMonitorService interface {
 	Userlist() (map[int]plex.MonitoredUser, error)
 	User(id int) (plex.MonitoredUser, error)
 	AddUser(id int, ratingKey string) error
+	SetField(id int, field, value string) error
+	Start() error
+	Stop() error
 }
