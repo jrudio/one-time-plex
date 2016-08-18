@@ -24,3 +24,46 @@ Here are some goals I hope to achieve with this version:
 - That's all I can think of for now... lol
 
 <sup>1</sup> A violation is a user that accesses media they were not assigned to
+
+### Build
+
+To compile this source you need:
+
+  - Go
+  - govendor
+
+Then you need to:
+
+1. cd into `cmd/otp`
+2. `govendor sync` (which gathers required dependencies)
+3. `go install`
+
+### Usage
+
+- On first run it will create a `config.toml` file
+
+- Edit it to your preference
+
+- Make sure you supply a plex token in the config if you plan on inviting the user when using `/api/v1/request/add`
+
+- run `otp`
+
+### API
+
+##### Beware that the endpoints are *currently* not secured by an API key
+
+`GET /api/v1/monitor/start`:
+
+Will start monitoring your Plex sessions
+
+`POST /api/v1/request/add`:
+
+  - Add query `?plexpass=1` to restrict media with labels
+
+  - By default an invite will be sent to the `plexUsername`. If the user is already invited to your server, then append the query `&invite=0`
+
+  - required in post form:
+    - `plexUsername: jrudio-guest`
+    
+    - `ratingKey: 6` (the id that Plex uses for media)
+
