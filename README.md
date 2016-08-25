@@ -48,9 +48,12 @@ Then you need to:
 
 - run `otp`
 
-### API
 
-##### Beware that the endpoints are *currently* not secured by an API key
+### [Command-line tool](cmd/tool) (Use the command-line tool to manually execute certain tasks)
+
+### API (Using the api will help automate some tasks)
+
+##### Beware that the endpoints are *currently* NOT secured by an API key (Don't expose this app to the internet!)
 
 `GET /api/v1/monitor/start`:
 
@@ -67,3 +70,13 @@ Will start monitoring your Plex sessions
     
     - `ratingKey: 6` (the id that Plex uses for media)
 
+
+##### The following endpoints require OTP to be on the Plex Server and must have proper permission to copy files/folders:
+
+`POST /api/v1/library/shared/new`
+
+  - Post form:
+    - `plexUsername: jrudio-guest`
+    
+    - `ratingKey: 6` (the id that Plex uses for media)
+  
