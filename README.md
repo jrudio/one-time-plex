@@ -63,7 +63,7 @@ Will start monitoring your Plex sessions
 
   - Add query `?plexpass=1` to restrict media with labels
 
-  - By default an invite will be sent to the `plexUsername`. If the user is already invited to your server, then append the query `&invite=0`
+  - ~~By default an invite will be sent to the `plexUsername`. If the user is already invited to your server, then append the query `&invite=0`~~ NOT IMPLEMENTED
 
   - required in post form:
     - `plexUsername: jrudio-guest`
@@ -73,10 +73,10 @@ Will start monitoring your Plex sessions
 
 ##### The following endpoints require OTP to be on the Plex Server and must have proper permission to copy files/folders:
 
-`POST /api/v1/library/shared/new`
+~~`POST /api/v1/library/shared/new`~~
 
-  - Post form:
-    - `plexUsername: jrudio-guest`
+  - ~~Post form:~~
+    - ~~`plexUsername: jrudio-guest`~~
     
-    - `ratingKey: 6` (the id that Plex uses for media)
+    - ~~`ratingKey: 6` (the id that Plex uses for media~~ NOT IMPLEMENTED
   
