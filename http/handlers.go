@@ -1,12 +1,14 @@
 package http
 
 import (
+	"fmt"
+	"net/http"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/jrudio/go-plex-client"
 	"github.com/jrudio/otp-reloaded"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/engine/standard"
-	"net/http"
 )
 
 // Handler holds the endpoint handlers
@@ -202,30 +204,70 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, resp)
 	}
 
-	// invite user to pms
-	inviteParams := plex.InviteFriendParams{
-		LibraryIDs:      []int{libraryID},
-		MachineID:       machineID,
-		UsernameOrEmail: plexUsername,
-	}
-
-	if plexPass == "1" {
-		inviteParams.Label = plexUsername
-	}
-
 	var plexFriendUserID int
-	plexFriendUserID, err = h.Plex.InviteFriend(inviteParams)
 
-	if err != nil {
-		log.Info("inviteFriend")
+	// we need the id of the user to monitor
+	// if we are inviting the user then that will be straightforward
+	// if the user is on the server then we'll compare usernames and select the matching user id
+	invite := c.QueryParam("invite")
+
+	if invite == "1" {
+		// invite user to pms
+		inviteParams := plex.InviteFriendParams{
+			LibraryIDs:      []int{libraryID},
+			MachineID:       machineID,
+			UsernameOrEmail: plexUsername,
+		}
+
+		if plexPass == "1" {
+			inviteParams.Label = plexUsername
+		}
+		plexFriendUserID, err = h.Plex.InviteFriend(inviteParams)
+
+		if err != nil {
+			log.Info("inviteFriend")
+			log.WithFields(log.Fields{
+				"endpoint":     c.Request().URI(),
+				"ratingKey":    ratingKey,
+				"plexUsername": plexUsername,
+				"machine id":   machineID,
+			}).Error(err)
+			resp.Reason = "failed invite user"
+			return c.JSON(http.StatusBadRequest, resp)
+		}
+	} else {
+		// search users for user id
+		friends, err := h.Plex.GetFriends()
+
+		if err != nil {
+			log.Info("getFriends")
+			log.WithFields(log.Fields{
+				"endpoint":     c.Request().URI(),
+				"ratingKey":    ratingKey,
+				"plexUsername": plexUsername,
+				"machine id":   machineID,
+			}).Error(err)
+			resp.Reason = "failed getting friends list"
+			return c.JSON(http.StatusInternalServerError, resp)
+		}
+
+		for _, friend := range friends {
+			if friend.Username == plexUsername {
+				plexFriendUserID = friend.ID
+			}
+		}
+	}
+
+	if plexFriendUserID == 0 {
+		log.Info("plexFriendUserID")
 		log.WithFields(log.Fields{
 			"endpoint":     c.Request().URI(),
 			"ratingKey":    ratingKey,
 			"plexUsername": plexUsername,
 			"machine id":   machineID,
 		}).Error(err)
-		resp.Reason = "failed invite user"
-		return c.JSON(http.StatusBadRequest, resp)
+		resp.Reason = fmt.Sprintf("failed getting id of %s", plexUsername)
+		return c.JSON(http.StatusInternalServerError, resp)
 	}
 
 	// monitor user
@@ -240,30 +282,6 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 		resp.Reason = "failed to add user to monitor list"
 
 		return c.JSON(http.StatusExpectationFailed, resp)
-	}
-	// h.PlexMonitorService.AddUser(1, 6)
-
-	// return success
-
-	// if err != nil {
-	// 	log.WithFields(log.Fields{
-	// 		"endpoint":     c.Request().URI(),
-	// 		"ratingKey":    ratingKey,
-	// 		"plexUsername": plexUsername,
-	// 	}).Error(err)
-	// resp.Reason = "failed to add user to monitor list"
-	// return c.JSON(http.StatusBadRequest, resp)
-	// }
-
-	if plexFriendUserID == 0 {
-		log.WithFields(log.Fields{
-			"endpoint":     c.Request().URI(),
-			"ratingKey":    ratingKey,
-			"plexUsername": plexUsername,
-		}).Debug("invite failed")
-
-		resp.Reason = "failed to add user to PMS"
-		return c.JSON(http.StatusBadRequest, resp)
 	}
 
 	resp.Err = false
@@ -281,6 +299,22 @@ func (h Handler) startPlexMonitor(c echo.Context) error {
 		resp.Reason = "failed to start plex monitor: " + err.Error()
 		c.JSON(http.StatusExpectationFailed, resp)
 		return nil
+	}
+
+	resp.Err = false
+	resp.Result = true
+
+	return c.JSON(http.StatusOK, resp)
+}
+
+func (h Handler) stopPlexMonitor(c echo.Context) error {
+	resp := endpointResponse{
+		Err: true,
+	}
+
+	if err := h.PlexMonitorService.Stop(); err != nil {
+		resp.Reason = "failed to stop plex monitor: " + err.Error()
+		return c.JSON(http.StatusExpectationFailed, resp)
 	}
 
 	resp.Err = false

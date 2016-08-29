@@ -63,7 +63,7 @@ Will start monitoring your Plex sessions
 
   - Add query `?plexpass=1` to restrict media with labels
 
-  - ~~By default an invite will be sent to the `plexUsername`. If the user is already invited to your server, then append the query `&invite=0`~~ NOT IMPLEMENTED
+  - By default an invite will be sent to the `plexUsername`. If the user is already invited to your server, then append the query `&invite=0`
 
   - required in post form:
     - `plexUsername: jrudio-guest`
