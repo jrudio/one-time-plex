@@ -24,7 +24,6 @@ import (
 var libraryCmd = &cobra.Command{
 	Use:   "library",
 	Short: "Get a list of your libraries on your Plex server",
-	// Long: ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		checkPlexCredentials()
 
@@ -57,7 +56,6 @@ var libraryCmd = &cobra.Command{
 var newLibraryCmd = &cobra.Command{
 	Use:   "new",
 	Short: "Create a new shared library for your Plex friend",
-	Long:  "A configuration file prevents repetitive credential input",
 	Run: func(cmd *cobra.Command, args []string) {
 		shared, err := cmd.LocalFlags().GetBool("shared")
 		if err != nil {
@@ -95,11 +93,17 @@ var newLibraryCmd = &cobra.Command{
 			return
 		}
 
+		language, err := cmd.LocalFlags().GetString("language")
+		if err != nil {
+			fmt.Println("flag error:", err)
+			return
+		}
+
 		if shared {
 			fmt.Println("creating a shared library")
 		} else {
 			fmt.Println("creating a new library")
-			if err = PlexConn.CreateLibrary(name, location, libraryType, agent, scanner); err != nil {
+			if err = PlexConn.CreateLibrary(name, location, libraryType, agent, scanner, language); err != nil {
 				fmt.Println("create library:", err)
 			}
 		}
@@ -107,9 +111,32 @@ var newLibraryCmd = &cobra.Command{
 	},
 }
 
+var removeLibraryCmd = &cobra.Command{
+	Use:   "rm",
+	Short: "Remove a library from your Plex server",
+	Run: func(cmd *cobra.Command, args []string) {
+		checkPlexCredentials()
+
+		if len(args) != 1 {
+			cmd.Usage()
+			return
+		}
+
+		key := args[0]
+
+		if err := PlexConn.DeleteLibrary(key); err != nil {
+			fmt.Printf("failed to remove library: %v\n", err)
+			return
+		}
+
+		fmt.Printf("Successfully removed %s from your server\n", key)
+	},
+}
+
 func init() {
 	RootCmd.AddCommand(libraryCmd)
 	libraryCmd.AddCommand(newLibraryCmd)
+	libraryCmd.AddCommand(removeLibraryCmd)
 
 	// Here you will define your flags and configuration settings.
 
@@ -127,4 +154,5 @@ func init() {
 	newLibraryCmd.Flags().String("agent", "", "Media agent to use to gather metadata for library `REQUIRED`")
 	newLibraryCmd.Flags().String("scanner", "", "Scanner for plex to use `REQUIRED`")
 	newLibraryCmd.Flags().String("location", "", "Location of the new library `REQUIRED`")
+	newLibraryCmd.Flags().String("language", "en", "Library language `defaults to 'en' (english)")
 }
