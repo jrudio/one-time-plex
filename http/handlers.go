@@ -290,6 +290,46 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
+func (h Handler) removeUserFromPMS(c echo.Context) error {
+	resp := endpointResponse{
+		Err: true,
+	}
+
+	plexUsername := c.FormValue("plexUsername")
+
+	if plexUsername == "" {
+		resp.Reason = "missing plexUsername"
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	user, err := h.UserService.UserViaName(plexUsername)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"endpoint":     c.Request().URI(),
+			"plexUsername": plexUsername,
+		}).Error(err)
+
+		resp.Reason = fmt.Sprintf("failed to find user: %s", plexUsername)
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	if err := h.UserService.DeleteUser(user.ID); err != nil {
+		log.WithFields(log.Fields{
+			"endpoint":     c.Request().URI(),
+			"plexUsername": plexUsername,
+		}).Error(err)
+
+		resp.Reason = fmt.Sprintf("failed to delete user: %s", plexUsername)
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Err = false
+	resp.Result = true
+
+	return c.JSON(http.StatusOK, resp)
+}
+
 func (h Handler) startPlexMonitor(c echo.Context) error {
 	resp := endpointResponse{
 		Err: true,
@@ -319,6 +359,37 @@ func (h Handler) stopPlexMonitor(c echo.Context) error {
 
 	resp.Err = false
 	resp.Result = true
+
+	return c.JSON(http.StatusOK, resp)
+}
+
+func (h Handler) getAllMonitoredPlexUsers(c echo.Context) error {
+	resp := endpointResponse{
+		Err: true,
+	}
+
+	userlist, err := h.PlexMonitorService.Userlist()
+
+	if err != nil {
+		resp.Reason = "failed to fetch monitored Plex users: " + err.Error()
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Err = false
+
+	// turn userlist into a slice so api consumers can handle result
+	listCount := len(userlist)
+
+	userlistSlice := make([]plex.MonitoredUser, listCount)
+
+	ii := 0
+
+	for _, user := range userlist {
+		userlistSlice[ii] = user
+		ii++
+	}
+
+	resp.Result = userlistSlice
 
 	return c.JSON(http.StatusOK, resp)
 }

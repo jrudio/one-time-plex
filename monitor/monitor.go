@@ -8,6 +8,11 @@ import (
 	"strconv"
 )
 
+const (
+	plexUserlistKey = "plex.userlist"
+	plexUserKey     = "plexUser:"
+)
+
 // PlexMonitorService will interface with PMS using any datastore
 type PlexMonitorService struct {
 	DB      *ledis.DB
@@ -31,7 +36,7 @@ func (p PlexMonitorService) Count() int {
 
 // Userlist returns a map of monitored users
 func (p *PlexMonitorService) Userlist() (map[int]plex.MonitoredUser, error) {
-	userlistHashMap, err := p.DB.HGetAll([]byte("userlist"))
+	userlistHashMap, err := p.DB.HGetAll([]byte(plexUserlistKey))
 
 	if err != nil {
 		return map[int]plex.MonitoredUser{}, errors.Wrap(err, "failed to retrieve userlist")
@@ -69,7 +74,7 @@ func (p PlexMonitorService) User(id int) (plex.MonitoredUser, error) {
 	var user plex.MonitoredUser
 
 	// make sure user exists
-	bytesWritten, err := p.DB.HKeyExists([]byte("plexUser:" + idStr))
+	bytesWritten, err := p.DB.HKeyExists([]byte(plexUserKey + idStr))
 
 	if err != nil {
 		return user, errors.Wrap(err, "check existing user failed")
@@ -81,7 +86,7 @@ func (p PlexMonitorService) User(id int) (plex.MonitoredUser, error) {
 
 	// extract required fields
 	var fields [][]byte
-	fields, err = p.DB.HMget([]byte("plexUser:"+idStr), []byte("ratingKey"), []byte("isTranscoding"), []byte("isDirectPlay"), []byte("killingSession"), []byte("killedSession"))
+	fields, err = p.DB.HMget([]byte(plexUserKey+idStr), []byte("ratingKey"), []byte("isTranscoding"), []byte("isDirectPlay"), []byte("killingSession"), []byte("killedSession"))
 
 	if err != nil {
 		return user, errors.Wrap(err, "failed to retrieve user")
@@ -102,7 +107,7 @@ func (p PlexMonitorService) AddUser(id int, ratingKey string) error {
 	idStr := strconv.Itoa(id)
 
 	// check for existing user
-	exists, err := p.DB.HKeyExists([]byte("plexUser:" + idStr))
+	exists, err := p.DB.HKeyExists([]byte(plexUserKey + idStr))
 
 	if err != nil {
 		return errors.Wrap(err, "check existing user failed")
@@ -112,7 +117,7 @@ func (p PlexMonitorService) AddUser(id int, ratingKey string) error {
 		return errors.New("user already exists")
 	}
 
-	err = p.DB.HMset([]byte("plexUser:"+idStr), ledis.FVPair{
+	err = p.DB.HMset([]byte(plexUserKey+idStr), ledis.FVPair{
 		Field: []byte("ratingKey"),
 		Value: []byte(ratingKey),
 	},
@@ -141,7 +146,7 @@ func (p PlexMonitorService) AddUser(id int, ratingKey string) error {
 
 	// add to userlist
 	var bytesWritten int64
-	bytesWritten, err = p.DB.HSet([]byte("userlist"), []byte(idStr), []byte(""))
+	bytesWritten, err = p.DB.HSet([]byte(plexUserlistKey), []byte(idStr), []byte(""))
 
 	if err != nil {
 		p.DB.HClear([]byte(idStr))
@@ -168,7 +173,7 @@ func (p PlexMonitorService) SetField(id int, field string, value string) error {
 	idStr := strconv.Itoa(id)
 
 	// check for existing user
-	exists, err := p.DB.HKeyExists([]byte("plexUser:" + idStr))
+	exists, err := p.DB.HKeyExists([]byte(plexUserKey + idStr))
 
 	if err != nil {
 		return errors.Wrap(err, "check existing user failed")
@@ -178,7 +183,7 @@ func (p PlexMonitorService) SetField(id int, field string, value string) error {
 		return errors.New("user doesn't exist")
 	}
 
-	_, err = p.DB.HSet([]byte("plexUser:"+idStr), []byte(field), []byte(value))
+	_, err = p.DB.HSet([]byte(plexUserKey+idStr), []byte(field), []byte(value))
 
 	if err != nil {
 		return errors.Wrap(err, "failed to set user field")

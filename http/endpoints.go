@@ -35,11 +35,14 @@ func CreateEndpoints(h Handler) *echo.Echo {
 	request := api.Group("/request")
 
 	request.POST("/add", h.addUserToPMS)
+	request.POST("/remove", h.removeUserFromPMS)
 
 	// monitor := api.Group("/monitor", checkAPIKey)
 	monitor := api.Group("/monitor")
 
 	monitor.GET("/start", h.startPlexMonitor)
+	monitor.GET("/users", h.getAllMonitoredPlexUsers)
+	// monitor.GET("/user", h.getMonitoredPlexUser)
 
 	return router
 }
