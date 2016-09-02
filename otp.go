@@ -33,6 +33,7 @@ type PlexUser struct {
 // UserService interfaces with users
 type UserService interface {
 	User(id string) (*User, error)
+	UserViaName(username string) (*User, error)
 	Users() ([]*User, error)
 	CreateUser(u *User) (string, error)
 	DeleteUser(id string) error
@@ -53,7 +54,8 @@ type MediaRequestService interface {
 type PlexMonitorService interface {
 	Userlist() (map[int]plex.MonitoredUser, error)
 	User(id int) (plex.MonitoredUser, error)
-	AddUser(id int, ratingKey string) error
+	UserViaName(username string) (plex.MonitoredUser, error)
+	AddUser(id int, username, ratingKey string) error
 	SetField(id int, field, value string) error
 	Start() error
 	Stop() error

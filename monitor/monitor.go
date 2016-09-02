@@ -47,7 +47,8 @@ func (p *PlexMonitorService) Userlist() (map[int]plex.MonitoredUser, error) {
 	userlist := make(map[int]plex.MonitoredUser, userlistCount)
 
 	for _, userlistField := range userlistHashMap {
-		userID, err := strconv.Atoi(string(userlistField.Field))
+		// convert the id (type []byte) to string then to int
+		userID, err := strconv.Atoi(string(userlistField.Value))
 
 		if err != nil {
 			return userlist, errors.Wrap(err, "failed to convert user id from string to int")
@@ -102,9 +103,42 @@ func (p PlexMonitorService) User(id int) (plex.MonitoredUser, error) {
 	return user, nil
 }
 
+// UserViaName just like User returns a user but by looking up the name
+func (p PlexMonitorService) UserViaName(name string) (plex.MonitoredUser, error) {
+	var user plex.MonitoredUser
+
+	// grab the id from userlist
+	idBytes, err := p.DB.HGet([]byte(plexUserlistKey), []byte(name))
+
+	if err != nil {
+		return user, err
+	}
+
+	if idBytes == nil {
+		return user, errors.New("id field is empty")
+	}
+
+	// convert to int
+	id, err := strconv.Atoi(string(idBytes))
+
+	if err != nil {
+		return user, err
+	}
+
+	return p.User(id)
+}
+
 // AddUser adds a user to the monitoring list
-func (p PlexMonitorService) AddUser(id int, ratingKey string) error {
+func (p PlexMonitorService) AddUser(id int, username, ratingKey string) error {
+	if username == "" {
+		return errors.New("username is required")
+	}
+
 	idStr := strconv.Itoa(id)
+
+	if id == 0 || idStr == "" {
+		return errors.New("id is required")
+	}
 
 	// check for existing user
 	exists, err := p.DB.HKeyExists([]byte(plexUserKey + idStr))
@@ -146,7 +180,7 @@ func (p PlexMonitorService) AddUser(id int, ratingKey string) error {
 
 	// add to userlist
 	var bytesWritten int64
-	bytesWritten, err = p.DB.HSet([]byte(plexUserlistKey), []byte(idStr), []byte(""))
+	bytesWritten, err = p.DB.HSet([]byte(plexUserlistKey), []byte(username), []byte(idStr))
 
 	if err != nil {
 		p.DB.HClear([]byte(idStr))
@@ -169,7 +203,7 @@ func (p PlexMonitorService) RemoveUser(id int) error {
 }
 
 // SetField sets a field on a user
-func (p PlexMonitorService) SetField(id int, field string, value string) error {
+func (p PlexMonitorService) SetField(id int, field, value string) error {
 	idStr := strconv.Itoa(id)
 
 	// check for existing user

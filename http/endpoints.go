@@ -42,7 +42,7 @@ func CreateEndpoints(h Handler) *echo.Echo {
 
 	monitor.GET("/start", h.startPlexMonitor)
 	monitor.GET("/users", h.getAllMonitoredPlexUsers)
-	// monitor.GET("/user", h.getMonitoredPlexUser)
+	monitor.GET("/user/:name", h.getMonitoredPlexUser)
 
 	return router
 }

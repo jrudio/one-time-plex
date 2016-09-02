@@ -208,7 +208,7 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 
 	// we need the id of the user to monitor
 	// if we are inviting the user then that will be straightforward
-	// if the user is on the server then we'll compare usernames and select the matching user id
+	// if the user is on the server then we'll compare usernames and select the matching user to get the id
 	invite := c.QueryParam("invite")
 
 	if invite == "1" {
@@ -271,7 +271,7 @@ func (h Handler) addUserToPMS(c echo.Context) error {
 	}
 
 	// monitor user
-	if err := h.PlexMonitorService.AddUser(plexFriendUserID, ratingKey); err != nil {
+	if err := h.PlexMonitorService.AddUser(plexFriendUserID, plexUsername, ratingKey); err != nil {
 		log.WithFields(log.Fields{
 			"endpoint":     c.Request().URI(),
 			"ratingKey":    ratingKey,
@@ -375,8 +375,6 @@ func (h Handler) getAllMonitoredPlexUsers(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, resp)
 	}
 
-	resp.Err = false
-
 	// turn userlist into a slice so api consumers can handle result
 	listCount := len(userlist)
 
@@ -389,7 +387,38 @@ func (h Handler) getAllMonitoredPlexUsers(c echo.Context) error {
 		ii++
 	}
 
+	resp.Err = false
 	resp.Result = userlistSlice
+
+	return c.JSON(http.StatusOK, resp)
+}
+
+func (h Handler) getMonitoredPlexUser(c echo.Context) error {
+	resp := endpointResponse{
+		Err: true,
+	}
+
+	username := c.Param("name")
+
+	if username == "" {
+		resp.Reason = "username is required"
+		return c.JSON(http.StatusBadRequest, resp)
+	}
+
+	user, err := h.PlexMonitorService.UserViaName(username)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"endpoint": c.Request().URI(),
+			"username": username,
+		}).Error(err)
+
+		resp.Reason = "failed to fetch user"
+		return c.JSON(http.StatusInternalServerError, resp)
+	}
+
+	resp.Err = false
+	resp.Result = user
 
 	return c.JSON(http.StatusOK, resp)
 }
