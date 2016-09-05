@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/jrudio/go-plex-client"
 	"github.com/spf13/cobra"
 )
 
@@ -53,9 +54,12 @@ var libraryCmd = &cobra.Command{
 	},
 }
 
+const libraryTypeOptions = "[movie, show, music, photo, homevideo]"
+
 var newLibraryCmd = &cobra.Command{
 	Use:   "new",
-	Short: "Create a new shared library for your Plex friend",
+	Short: "Create a new library. Optionally, create a library just for your Plex friend",
+	Long:  "Example: library new /home/jrudio-guest/media/tv --type=show",
 	Run: func(cmd *cobra.Command, args []string) {
 		shared, err := cmd.LocalFlags().GetBool("shared")
 		if err != nil {
@@ -75,35 +79,56 @@ var newLibraryCmd = &cobra.Command{
 			return
 		}
 
-		agent, err := cmd.LocalFlags().GetString("agent")
-		if err != nil {
-			fmt.Println("flag error:", err)
+		// path arg
+		argsCount := len(args)
+		if argsCount == 0 {
+			fmt.Println("one arg needed!")
+			fmt.Println("library new [flags] <path-to-library>")
 			return
 		}
 
-		scanner, err := cmd.LocalFlags().GetString("scanner")
-		if err != nil {
-			fmt.Println("flag error:", err)
+		if argsCount > 1 {
+			fmt.Println("only one arg needed!")
+			fmt.Println("library new <path-to-library> [flags]")
 			return
 		}
 
-		location, err := cmd.LocalFlags().GetString("location")
-		if err != nil {
-			fmt.Println("flag error:", err)
+		if name == "" {
+			fmt.Println("'--name' is required")
+			cmd.Usage()
 			return
 		}
 
-		language, err := cmd.LocalFlags().GetString("language")
-		if err != nil {
-			fmt.Println("flag error:", err)
+		if libraryType == "" {
+			fmt.Println("'--type' is required")
+			cmd.Usage()
 			return
 		}
+
+		libraryParams, err := plex.LibraryParamsFromMediaType(libraryType)
+
+		if err != nil {
+			fmt.Println(err)
+			fmt.Println("flag '--type' must be one of: " + libraryTypeOptions)
+			return
+		}
+
+		libraryParams.Location = args[0]
+		libraryParams.Name = name
+
+		// user can override params with flags
+		if libraryParams, err = overrideParams(libraryParams, cmd); err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		// fmt.Printf("%+v\n", libraryParams)
 
 		if shared {
 			fmt.Println("creating a shared library")
 		} else {
 			fmt.Println("creating a new library")
-			if err = PlexConn.CreateLibrary(name, location, libraryType, agent, scanner, language); err != nil {
+			if err = PlexConn.CreateLibrary(libraryParams); err != nil {
 				fmt.Println("create library:", err)
 			}
 		}
@@ -133,6 +158,40 @@ var removeLibraryCmd = &cobra.Command{
 	},
 }
 
+func overrideParams(params plex.CreateLibraryParams, cmd *cobra.Command) (plex.CreateLibraryParams, error) {
+	agent, err := cmd.LocalFlags().GetString("agent")
+	if err != nil {
+		fmt.Println("flag error:", err)
+		return plex.CreateLibraryParams{}, err
+	}
+
+	scanner, err := cmd.LocalFlags().GetString("scanner")
+	if err != nil {
+		fmt.Println("flag error:", err)
+		return plex.CreateLibraryParams{}, err
+	}
+
+	language, err := cmd.LocalFlags().GetString("language")
+	if err != nil {
+		fmt.Println("flag error:", err)
+		return plex.CreateLibraryParams{}, err
+	}
+
+	if agent != "" {
+		params.Agent = agent
+	}
+
+	if scanner != "" {
+		params.Scanner = scanner
+	}
+
+	if language != "" {
+		params.Language = language
+	}
+
+	return params, nil
+}
+
 func init() {
 	RootCmd.AddCommand(libraryCmd)
 	libraryCmd.AddCommand(newLibraryCmd)
@@ -150,9 +209,8 @@ func init() {
 	newLibraryCmd.Flags().BoolP("shared", "s", false, "Create a shared library")
 
 	newLibraryCmd.Flags().String("name", "", "Name of new library `REQUIRED`")
-	newLibraryCmd.Flags().String("type", "", "Library type `REQUIRED`")
-	newLibraryCmd.Flags().String("agent", "", "Media agent to use to gather metadata for library `REQUIRED`")
-	newLibraryCmd.Flags().String("scanner", "", "Scanner for plex to use `REQUIRED`")
-	newLibraryCmd.Flags().String("location", "", "Location of the new library `REQUIRED`")
+	newLibraryCmd.Flags().String("type", "", "Library type; One of: "+libraryTypeOptions+" `REQUIRED`")
+	newLibraryCmd.Flags().String("agent", "", "Media agent to use to gather metadata for library")
+	newLibraryCmd.Flags().String("scanner", "", "Scanner for plex to use")
 	newLibraryCmd.Flags().String("language", "en", "Library language `defaults to 'en' (english)")
 }
