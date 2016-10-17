@@ -69,14 +69,3 @@ Will start monitoring your Plex sessions
     - `plexUsername: jrudio-guest`
     
     - `ratingKey: 6` (the id that Plex uses for media)
-
-
-##### The following endpoints require OTP to be on the Plex Server and must have proper permission to copy files/folders:
-
-~~`POST /api/v1/library/shared/new`~~
-
-  - ~~Post form:~~
-    - ~~`plexUsername: jrudio-guest`~~
-    
-    - ~~`ratingKey: 6` (the id that Plex uses for media~~ NOT IMPLEMENTED
-  
