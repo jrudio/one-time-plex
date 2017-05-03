@@ -1,10 +1,10 @@
 # One Time Plex (OTP)
 
-One Time Plex (OTP) allows a Plex user to access one movie or episode of a tv series from your Plex Media Server. OTP also features a REST api to allow you to interact with it programmatically.
+One Time Plex (OTP) allows a Plex user to access one movie or episode of a tv series from your Plex Media Server. It features a REST api to allow you to interact with it programmatically.
 
 ### How It Works
 
-* You (the Plex server owner) share your library to a Plex user (usually a family member or friend)
+* You (the Plex server owner) share your library with a Plex user (usually a family member or friend)
 * Add that user’s Plex user id and the id of the desired media to OTP
 * OTP will monitor what this user watches, and prevent the user from watching anything other than what you assigned to them
 * Once the user is finished, OTP will automatically stop sharing the library with that Plex user
