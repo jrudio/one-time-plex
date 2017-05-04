@@ -1,71 +1,39 @@
-# One Time Plex Reloaded (otp-reloaded)
+# One Time Plex (OTP)
 
-A server with a simple API to limit Plex users to one piece of media
+One Time Plex (OTP) allows a Plex user to access one movie or episode of a tv series from your Plex Media Server. It features a REST api to allow you to interact with it programmatically.
 
-##### This is a leaner version of [one-time-plex](https://github.com/jrudio/one-time-plex)
+### How It Works
 
-### Goals
+* You (the Plex server owner) share your library with a Plex user (usually a family member or friend)
+* Add that user’s Plex user id and the id of the desired media to OTP
+* OTP will monitor what this user watches, and prevent the user from watching anything other than what you assigned to them
+* Once the user is finished, OTP will automatically stop sharing the library with that Plex user
 
-Here are some goals I hope to achieve with this version:
+### Disclaimers
 
-1. Accept an API key for authentication
-2. Endpoints need to be clear and concise
-3. Stick to core features and expand later
-4. Don't focus on frontend code until core is complete
+Currently, OTP uses Plex’s web hook feature to monitor users, which is a Plex Pass feature. An option that will not rely on this will be added in the future.
 
-### Core features
+### Setup
 
-- Report user violation <sup>1</sup>
-- Handle user violation appropriately
-- Easily add user to be monitored
-- Easily remove user from being monitored
-- Able to add existing Plex accounts to PMS with appropriate access to media
-- A terminal client to easily interact with the server
-- That's all I can think of for now... lol
+- Add a plex webhook on your PMS and point it to one time plex
+    The default address (of one time plex) should be `localhost:8080/webhook`
 
-<sup>1</sup> A violation is a user that accesses media they were not assigned to
+- Run `./otp -write` to create a default configuration file
 
-### Build
+- Edit it to reflect your settings
 
-To compile this source you need:
-
-  - Go
-  - govendor
-
-Then you need to:
-
-1. cd into `cmd/otp`
-2. `govendor sync` (which gathers required dependencies)
-3. `go install`
 
 ### Usage
 
-- On first run it will create a `config.toml` file
+- Grab the user id of the Plex user you are sharing your library with
 
-- Edit it to your preference
+- Grab the media id (called the rating key in Plex) of the movie or episode of that user is assigned to
 
-- Make sure you supply a plex token in the config if you plan on inviting the user when using `/api/v1/request/add`
+- Make a `POST` request to `/api/users/add` with the following in the body:
 
-- run `otp`
+  ```bash
+    plexuserid: <plex-user-id>
+    mediaID: <media-id>
+  ```
 
-
-### [Command-line tool](cmd/tool) (Use the command-line tool to manually execute certain tasks)
-
-### API (Using the api will help automate some tasks)
-
-##### Beware that the endpoints are *currently* NOT secured by an API key (Don't expose this app to the internet!)
-
-`GET /api/v1/monitor/start`:
-
-Will start monitoring your Plex sessions
-
-`POST /api/v1/request/add`:
-
-  - Add query `?plexpass=1` to restrict media with labels
-
-  - By default an invite will be sent to the `plexUsername`. If the user is already invited to your server, then append the query `&invite=0`
-
-  - required in post form:
-    - `plexUsername: jrudio-guest`
-    
-    - `ratingKey: 6` (the id that Plex uses for media)
+- That's it!

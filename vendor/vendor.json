@@ -7,16 +7,58 @@
 			"revision": ""
 		},
 		{
-			"checksumSHA1": "hqDDDpue/5363luidNMBS8z8eJU=",
+			"checksumSHA1": "pPH/BoINXxzYDObljpsGZbysMrw=",
 			"path": "github.com/BurntSushi/toml",
-			"revision": "99064174e013895bbd9b025c31100bd1d9b590ca",
-			"revisionTime": "2016-07-17T15:07:09Z"
+			"revision": "b26d9c308763d68093482582cea63d69be07a0f0",
+			"revisionTime": "2017-03-28T06:15:53Z"
 		},
 		{
 			"checksumSHA1": "yXrS4e4yxaRBu/MX+39X3cS4kbg=",
 			"path": "github.com/Sirupsen/logrus",
 			"revision": "a283a10442df8dc09befd873fab202bf8a253d6a",
 			"revisionTime": "2016-07-16T02:56:31Z"
+		},
+		{
+			"checksumSHA1": "Y4LcuhroK8par0C4upRYmld+VFw=",
+			"path": "github.com/asdine/storm",
+			"revision": "e8518cc1200f320e508639491f9390b9c7c37970",
+			"revisionTime": "2017-04-17T09:23:55Z"
+		},
+		{
+			"checksumSHA1": "KXHP3AdJVnDxab4J2mDknFi8SPQ=",
+			"path": "github.com/asdine/storm/codec",
+			"revision": "e8518cc1200f320e508639491f9390b9c7c37970",
+			"revisionTime": "2017-04-17T09:23:55Z"
+		},
+		{
+			"checksumSHA1": "8B9a1JXYnmmzo353mN/z9MgKa2M=",
+			"path": "github.com/asdine/storm/codec/json",
+			"revision": "e8518cc1200f320e508639491f9390b9c7c37970",
+			"revisionTime": "2017-04-17T09:23:55Z"
+		},
+		{
+			"checksumSHA1": "q8nh9xGTcFYHQ/1p8Jgex3o66o4=",
+			"path": "github.com/asdine/storm/index",
+			"revision": "e8518cc1200f320e508639491f9390b9c7c37970",
+			"revisionTime": "2017-04-17T09:23:55Z"
+		},
+		{
+			"checksumSHA1": "LdtjleKjM18chG+f3AAWfezSmuo=",
+			"path": "github.com/asdine/storm/internal",
+			"revision": "e8518cc1200f320e508639491f9390b9c7c37970",
+			"revisionTime": "2017-04-17T09:23:55Z"
+		},
+		{
+			"checksumSHA1": "SQRQMGLaur8HtxqUMnZsqp5d9/Y=",
+			"path": "github.com/asdine/storm/q",
+			"revision": "e8518cc1200f320e508639491f9390b9c7c37970",
+			"revisionTime": "2017-04-17T09:23:55Z"
+		},
+		{
+			"checksumSHA1": "J+kVue/HTH4sELlqMO4z0tx9DiA=",
+			"path": "github.com/boltdb/bolt",
+			"revision": "e9cf4fae01b5a8ff89d0ec6b32f0d9c9f79aefdd",
+			"revisionTime": "2017-01-31T19:20:18Z"
 		},
 		{
 			"checksumSHA1": "/qt6v4VchSdBXTzO3av4Hj+cdNE=",
@@ -43,10 +85,46 @@
 			"revisionTime": "2016-05-12T03:30:02Z"
 		},
 		{
+			"checksumSHA1": "+pJ/Bz81Y9SJsSZk5W2acx9IfnE=",
+			"path": "github.com/emirpasic/gods/containers",
+			"revision": "f6c17b524822278a87e3b3bd809fec33b51f5b46",
+			"revisionTime": "2017-03-06T04:24:02Z"
+		},
+		{
+			"checksumSHA1": "EMOp3CuX8cfFbxn00GMEDOajyEQ=",
+			"path": "github.com/emirpasic/gods/trees",
+			"revision": "f6c17b524822278a87e3b3bd809fec33b51f5b46",
+			"revisionTime": "2017-03-06T04:24:02Z"
+		},
+		{
+			"checksumSHA1": "B4DP6dv0gFWbv7JLRwIW/qwsua4=",
+			"path": "github.com/emirpasic/gods/trees/redblacktree",
+			"revision": "f6c17b524822278a87e3b3bd809fec33b51f5b46",
+			"revisionTime": "2017-03-06T04:24:02Z"
+		},
+		{
+			"checksumSHA1": "6KV7DzMiMWnJbp5qhycmPIQ4t70=",
+			"path": "github.com/emirpasic/gods/utils",
+			"revision": "f6c17b524822278a87e3b3bd809fec33b51f5b46",
+			"revisionTime": "2017-03-06T04:24:02Z"
+		},
+		{
 			"checksumSHA1": "W+E/2xXcE1GmJ0Qb784ald0Fn6I=",
 			"path": "github.com/golang/snappy",
 			"revision": "d9eb7a3d35ec988b8585d4a0068e462c27d28380",
 			"revisionTime": "2016-05-29T05:00:41Z"
+		},
+		{
+			"checksumSHA1": "g/V4qrXjUGG9B+e3hB+4NAYJ5Gs=",
+			"path": "github.com/gorilla/context",
+			"revision": "08b5f424b9271eedf6f9f0ce86cb9396ed337a42",
+			"revisionTime": "2016-08-17T18:46:32Z"
+		},
+		{
+			"checksumSHA1": "zmCk+lgIeiOf0Ng9aFP9aFy8ksE=",
+			"path": "github.com/gorilla/mux",
+			"revision": "599cba5e7b6137d46ddf58fb1765f5d928e69604",
+			"revisionTime": "2017-02-28T22:43:54Z"
 		},
 		{
 			"checksumSHA1": "40vJyUB4ezQSn/NSadsKEOrudMc=",
@@ -55,10 +133,10 @@
 			"revisionTime": "2014-10-17T20:07:13Z"
 		},
 		{
-			"checksumSHA1": "KpOIxHvx2p+4Y2b+Qmu0e/vmbwk=",
+			"checksumSHA1": "nwD94hOnQqEj9gqr1Y6ggwnff9s=",
 			"path": "github.com/jrudio/go-plex-client",
-			"revision": "3041a584c79e89444fa0d1eedf278056f869bb0a",
-			"revisionTime": "2016-08-29T03:40:34Z"
+			"revision": "c696af8400875a287dff2c7511bc1f4ed2aa2f9f",
+			"revisionTime": "2017-03-09T06:31:23Z"
 		},
 		{
 			"checksumSHA1": "g3e51FjXOhQovqUS2T2DoNAz3VU=",
@@ -115,10 +193,10 @@
 			"revisionTime": "2016-08-08T05:55:40Z"
 		},
 		{
-			"checksumSHA1": "F6eWi/7Yl/rcMg9h3PWsgYQQkf0=",
+			"checksumSHA1": "aubZeGCrQaLuSKBLM2euHJLd2sA=",
 			"path": "github.com/rs/xid",
-			"revision": "057f3c928c207d1e7e318929eeac93bb46e319e3",
-			"revisionTime": "2016-03-15T14:06:58Z"
+			"revision": "5a2528f89fe574fce0d9f2cf45ba43a612b32dd2",
+			"revisionTime": "2017-03-20T00:02:38Z"
 		},
 		{
 			"checksumSHA1": "BbjvNHTHCOH+fiBRVnqgkIODIJQ=",
