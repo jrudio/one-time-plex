@@ -3,3 +3,5 @@ vendor/*
 otp-data
 */otpconfig.toml
 */onetimeplex.db
+dist
+.goxc.local.json
