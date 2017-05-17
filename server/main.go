@@ -65,6 +65,8 @@ func OnPlay(db *storm.DB, plexConnection *plex.Plex) func(wh plex.Webhook) {
 		title := wh.Metadata.Title
 		mediaID := wh.Metadata.RatingKey
 
+		fmt.Printf("%s (%d) has started playing %s (%s)\n", username, userID, title, mediaID)
+
 		// is this a user we need to check?
 		var user restrictedUser
 
