@@ -5,6 +5,8 @@ import { Provider } from 'react-redux'
 import { createStore, applyMiddleware } from 'redux'
 import thunkMiddleware from 'redux-thunk'
 import { rootReducer } from './reducers'
+import 'react-mdl/extra/material.css'
+import 'react-mdl/extra/material.js'
 import App from './App'
 import './index.css'
 
