@@ -1,7 +1,8 @@
 import React, { Component } from 'react'
 import logo from './logo.svg'
-import Users from './containers/users'
+// import Users from './containers/users'
 import AddUser from './components/adduser'
+import Search from './containers/search'
 import { Grid, Cell } from 'react-mdl'
 import './App.css'
 
@@ -17,8 +18,9 @@ class App extends Component {
         <div style={{ width: '80%', margin: 'auto'}}>
           <Grid>
             <Cell col={4}>
-              Restricted Users:
-              <Users />
+              <Search />
+              {/*Restricted Users:
+              <Users />*/}
             </Cell>
 
             <Cell col={8}>
