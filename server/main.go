@@ -21,6 +21,13 @@ const databaseFileName = "onetimeplex.db"
 
 var cwd string
 
+type plexSearchResults struct {
+	Title     string `json:"title"`
+	Year      string `json:"year"`
+	MediaID   string `json:"mediaID"`
+	MediaType string `json:"type"`
+}
+
 type clientResponse struct {
 	Result interface{} `json:"result"`
 	Err    string      `json:"error"`
@@ -205,6 +212,109 @@ func GetAllUsers(db *storm.DB) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func filterSearchResults(results plex.SearchResults) []plexSearchResults {
+	var newResults []plexSearchResults
+
+	count := results.MediaContainer.Size
+
+	if count == 0 {
+		return newResults
+	}
+
+	for _, r := range results.MediaContainer.Metadata {
+		filtered := plexSearchResults{
+			MediaType: r.Type,
+			MediaID:   r.RatingKey,
+			Title:     r.Title,
+			Year:      "N/A", // default to n/a if we can't convert to string
+		}
+
+		if year := strconv.FormatInt(r.Year, 10); year != "" {
+			filtered.Year = year
+		}
+
+		newResults = append(newResults, filtered)
+	}
+
+	return newResults
+}
+
+// SearchPlex is an endpoint that will search your Plex Media Server for media
+func SearchPlex(db *storm.DB, plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		var resp clientResponse
+
+		searchQuery := r.URL.Query().Get("title")
+
+		if searchQuery == "" {
+			resp.Err = "missing search query: 'title'"
+			resp.Write(w)
+			return
+		}
+
+		results, err := plexConnection.Search(searchQuery)
+
+		if err != nil {
+			resp.Err = fmt.Sprintf("search on plex media server failed: %v", err)
+			resp.Write(w)
+			return
+		}
+
+		// filter results with relevant information
+		resp.Result = filterSearchResults(results)
+
+		resp.Write(w)
+	}
+}
+
+// GetMetadataFromPlex fetches metadata of media from plex
+func GetMetadataFromPlex(db *storm.DB, plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "POST GET")
+
+		var resp clientResponse
+
+		mediaID := r.URL.Query().Get("mediaid")
+
+		if mediaID == "" {
+			resp.Err = "missing id from query: 'mediaID'"
+			w.WriteHeader(http.StatusBadRequest)
+			resp.Write(w)
+			return
+		}
+
+		metadata, err := plexConnection.GetMetadataChildren(mediaID)
+
+		if err != nil {
+			resp.Err = fmt.Sprintf("failed to grab metadata from plex: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			resp.Write(w)
+			return
+		}
+
+		var results []plexSearchResults
+
+		for _, child := range metadata.MediaContainer.Metadata {
+			newResult := plexSearchResults{
+				Title:     child.ParentTitle + " - " + child.Title,
+				MediaID:   child.RatingKey,
+				MediaType: child.Type,
+			}
+
+			results = append(results, newResult)
+		}
+
+		resp.Result = results
+
+		resp.Write(w)
+	}
+}
+
 func main() {
 	// grab optional params
 	writeDefaultConfigFile := flag.Bool("write", false, "create a default config file where ever the -config flag points to")
@@ -278,6 +388,12 @@ func main() {
 
 	// list restricted users
 	apiRouter.HandleFunc("/users", GetAllUsers(db)).Methods("GET")
+
+	// search media on plex
+	apiRouter.HandleFunc("/search", SearchPlex(db, plexConnection)).Methods("GET")
+
+	// get child data from plex
+	apiRouter.HandleFunc("/metadata", GetMetadataFromPlex(db, plexConnection)).Methods("GET")
 
 	fmt.Printf("serving one time plex on %s\n", config.Host)
 

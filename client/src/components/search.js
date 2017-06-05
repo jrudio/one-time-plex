@@ -2,8 +2,6 @@ import React, { Component } from 'react'
 import {
     Grid,
     Cell,
-    // Button,
-    // Checkbox,
     Icon,
     List,
     ListItem,
@@ -12,7 +10,7 @@ import {
     ProgressBar,
     Textfield
 } from 'react-mdl'
-// import Proptypes from 'prop-types'
+import Proptypes from 'prop-types'
 
 const styles = {
     errMsg: {
@@ -21,52 +19,70 @@ const styles = {
     },
     navback: {
         float: 'left'
+    },
+    searchResults: {
+        overflowY: 'overlay',
+        height: '300px'
     }
 }
 
 class Search extends Component {
-    handleAddMedia (mediaID) {
-        console.log('Adding:', mediaID)
+    componentWillMount () {
+        this.setState({
+            selectedMediaTitle: '',
+            selectedMediaID: ''
+        })
     }
-    handleGetEpisodes (seriesID) {
-        console.log('Getting more episodes of:', seriesID)
+    handleAddMedia (title, mediaID) {
+        this.setState({
+            selectedMediaTitle: title,
+            selectedMediaID: mediaID
+        })
+    }
+    handleGetMetadata (mediaID) {
+        if (mediaID === '') {
+            console.error('media id is required to fetch metadata')
+            return
+        }
+
+        let { getMetadata } = this.props
+
+        getMetadata(mediaID)
     }
     handleSearch (e) {
-        let { which } = e
+        let { target, which } = e
         let { searchPlexForMedia } = this.props
+        let searchText = target.value
 
         // user pressed enter
-        if (which === 13) {
-            searchPlexForMedia('test')
+        if (which === 13 && searchText !== '') {
+            searchPlexForMedia(searchText)
         }
     }
-    handleSelectResult (e, mediaType, mediaID) {
-        if (mediaType === 'series') {
-            this.handleGetSeasons(mediaID)
-            return
-        } else if (mediaType === 'season') {
-            this.handleGetEpisodes(mediaID)
+    handleSelectResult (e, mediaType, mediaID, title) {
+        if (mediaType === 'show' || mediaType === 'season') {
+            this.handleGetMetadata(mediaID)
             return
         }
 
         // it's either a movie or episode
-        this.handleAddMedia(mediaID)
+        this.handleAddMedia(title, mediaID)
     }
     renderSearchResults (results) {
-        return <List>  
+        return <List style={styles.searchResults} >  
             {results && results.map((r, i) => {
-                {/* default movie or episode */}
+                /* default movie or episode */
                 let iconType = 'add'
 
-                if (r.type === 'series' || r.type === 'season') {
+                if (r.type === 'show' || r.type === 'season') {
                     iconType = 'arrow_right'
                 }
                 
                 return (
                     <ListItem key={i}>
-                        <ListItemContent>{r.title} ({r.year})</ListItemContent>
+                        <ListItemContent onClick={(e) => this.handleSelectResult(e, r.type, r.mediaID, r.title)} >{r.title} {r.year && '(' + r.year + ')' }</ListItemContent>
                         <ListItemAction>
-                            <a><Icon name={iconType} onClick={(e) => this.handleSelectResult(e, r.type, r.mediaID)} /></a>
+                            <a><Icon name={iconType} onClick={(e) => this.handleSelectResult(e, r.type, r.mediaID, r.title)} /></a>
                         </ListItemAction>
                     </ListItem>
                 )
@@ -79,6 +95,11 @@ class Search extends Component {
             isSearching,
             errorMsg
         } = this.props
+
+        let {
+            selectedMediaTitle,
+            selectedMediaID
+        } = this.state
         
         return (
             <Grid>
@@ -89,9 +110,15 @@ class Search extends Component {
                         autoFocus
                         onKeyUp={e => this.handleSearch(e)}
                     />
-                    {results && results.length > 0 && (
+                    {/*{results && results.length > 0 && (
                         <div>
                             <a><Icon name='arrow_back' style={styles.navback} /></a>
+                        </div>
+                    )}*/}
+                    {selectedMediaID && (
+                        <div>
+                            <p>Media id for <i>{selectedMediaTitle}</i> is:</p>
+                            <pre>{selectedMediaID}</pre>
                         </div>
                     )}
                 </Cell>
@@ -105,5 +132,11 @@ class Search extends Component {
         )
     }
 }   
+
+Search.propTypes = {
+    results: Proptypes.array.isRequired,
+    searchPlexForMedia: Proptypes.func.isRequired,
+    getMetadata: Proptypes.func.isRequired
+}
 
 export default Search

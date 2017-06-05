@@ -6,6 +6,10 @@ import Search from './containers/search'
 import { Grid, Cell } from 'react-mdl'
 import './App.css'
 
+window.otp = {
+  url: 'http://localhost:8080/api'
+}
+
 class App extends Component {
   render() {
     return (
@@ -17,16 +21,18 @@ class App extends Component {
 
         <div style={{ width: '80%', margin: 'auto'}}>
           <Grid>
-            <Cell col={4}>
-              <Search />
+            <Cell col={6}>
+              <h4>Add User:</h4>
+              
+              <AddUser />
               {/*Restricted Users:
               <Users />*/}
             </Cell>
 
-            <Cell col={8}>
-              <h4>Add User:</h4>
-              
-              <AddUser />
+            <Cell col={6}>
+              <h4>Search Plex:</h4>
+
+              <Search />
             </Cell>
           </Grid>
         </div>
