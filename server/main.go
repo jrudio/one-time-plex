@@ -28,6 +28,14 @@ type plexSearchResults struct {
 	MediaType string `json:"type"`
 }
 
+type plexFriend struct {
+	ID              string `json:"id"`
+	Username        string `json:"username"`
+	ServerName      string `json:"serverName"`
+	ServerID        string `json:"serverID"`
+	ServerMachineID string `json:"serverMachineID"`
+}
+
 type clientResponse struct {
 	Result interface{} `json:"result"`
 	Err    string      `json:"error"`
@@ -53,6 +61,10 @@ func (r restrictedUser) toBytes() ([]byte, error) {
 }
 
 func (c clientResponse) Write(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "POST GET")
+
 	response, err := json.Marshal(&c)
 
 	if err != nil {
@@ -240,10 +252,8 @@ func filterSearchResults(results plex.SearchResults) []plexSearchResults {
 }
 
 // SearchPlex is an endpoint that will search your Plex Media Server for media
-func SearchPlex(db *storm.DB, plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
+func SearchPlex(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
 
 		var resp clientResponse
 
@@ -270,13 +280,41 @@ func SearchPlex(db *storm.DB, plexConnection *plex.Plex) func(w http.ResponseWri
 	}
 }
 
-// GetMetadataFromPlex fetches metadata of media from plex
-func GetMetadataFromPlex(db *storm.DB, plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
+// GetPlexFriends will return an array of usernames and ids that are friends with associated plex token
+func GetPlexFriends(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "POST GET")
+		var resp clientResponse
 
+		friends, err := plexConnection.GetFriends()
+
+		if err != nil {
+			resp.Err = fmt.Sprintf("failed to fetch friends from plex: %v", err)
+			resp.Write(w)
+			return
+		}
+
+		var friendsFiltered []plexFriend
+
+		for _, friend := range friends {
+			filteredFriend := plexFriend{
+				ID:              strconv.Itoa(friend.ID),
+				Username:        friend.Username,
+				ServerID:        friend.Server.ID,
+				ServerMachineID: friend.Server.MachineIdentifier,
+				ServerName:      friend.Server.Name,
+			}
+
+			friendsFiltered = append(friendsFiltered, filteredFriend)
+		}
+
+		resp.Result = friendsFiltered
+		resp.Write(w)
+	}
+}
+
+// GetMetadataFromPlex fetches metadata of media from plex
+func GetMetadataFromPlex(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		var resp clientResponse
 
 		mediaID := r.URL.Query().Get("mediaid")
@@ -390,10 +428,13 @@ func main() {
 	apiRouter.HandleFunc("/users", GetAllUsers(db)).Methods("GET")
 
 	// search media on plex
-	apiRouter.HandleFunc("/search", SearchPlex(db, plexConnection)).Methods("GET")
+	apiRouter.HandleFunc("/search", SearchPlex(plexConnection)).Methods("GET")
+
+	// get plex friends
+	apiRouter.HandleFunc("/friends", GetPlexFriends(plexConnection)).Methods("GET")
 
 	// get child data from plex
-	apiRouter.HandleFunc("/metadata", GetMetadataFromPlex(db, plexConnection)).Methods("GET")
+	apiRouter.HandleFunc("/metadata", GetMetadataFromPlex(plexConnection)).Methods("GET")
 
 	fmt.Printf("serving one time plex on %s\n", config.Host)
 

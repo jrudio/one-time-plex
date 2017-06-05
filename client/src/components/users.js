@@ -13,7 +13,7 @@ class Users extends Component {
             users
         } = this.props
         
-        console.log(this.props)
+        // console.log(this.props)
         
         if (!users) {
             return <div></div>

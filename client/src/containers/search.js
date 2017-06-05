@@ -13,7 +13,7 @@ const mapStateToProps = (state) => {
         search,
     } = state
 
-    console.log(search)
+    // console.log(search)
 
     return search
 }

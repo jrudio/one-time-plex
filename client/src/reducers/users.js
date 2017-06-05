@@ -13,7 +13,7 @@ export default (state = [], action) => {
 
             newState.push(newUser)
 
-            console.log(newState)
+            // console.log(newState)
 
             return [].concat(state, newState)
         default:

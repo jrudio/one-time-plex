@@ -1,60 +1,136 @@
 import React, { Component } from 'react'
-import { Grid, Cell, Button, Checkbox } from 'react-mdl'
-// import Proptypes from 'prop-types'
+import {
+    Grid,
+    Cell,
+    Button,
+    List,
+    ListItem,
+    ListItemContent,
+    ListItemAction,
+    Spinner,
+    Icon,
+    // Checkbox,
+    Textfield
+} from 'react-mdl'
+import Proptypes from 'prop-types'
 
-class User extends Component {
+const styles = {
+    friendList: {
+        overflowY: 'overlay',
+        height: '300px'
+    },
+    navback: {
+        float: 'left'
+    }
+}
+
+class AddUser extends Component {
     componentWillMount () {
-        this.userInput = null
         this.setState({
-            form: 'stepone'
+            // selectfriend, inviteform, finalform, and stepone
+            form: 'stepone',
+            previousForm: [],
+            selectedFriend: {
+                id: '',
+                username: '',
+                serverName: '',
+                serverMachineID: ''
+            },
+        })
+
+        let { getFriends } = this.props
+
+        getFriends()
+    }
+    show (newForm = '') {
+        let { form, previousForm } = this.state
+
+        previousForm.push(form)
+
+        this.setState({
+            form: newForm,
+            previousForm
         })
     }
-    componentDidMount () {
-        // this.userInput.focus()
-    }
-    showInviteForm () {
+    handleGoBack () {
+        let { previousForm } = this.state
+        let form = previousForm.pop()
+
+        if (form === 'stepone') {
+            return
+        }
+        
         this.setState({
-            form: 'inviteform'
+            form,
+            previousForm
         })
     }
-    showFinalForm () {
+    handleSelectFriend (user) {
+        let {
+            id,
+            username
+        } = user
+
+        console.log('selecting ' + username + ' (' + id + ')')
+
+        let {
+            selectedFriend
+        } = this.state
+
+        selectedFriend.id = id
+        selectedFriend.username = username
+
         this.setState({
-            form: 'finalform'
+            selectedFriend
         })
+
+        this.show('finalform')
     }
     renderFinalForm () {
+        let {
+            selectedFriend
+        } = this.state
+
+        return (
+            <div>
+                <pre>{selectedFriend.username} - (Plex user id: {selectedFriend.id})</pre>
+
+                <Textfield
+                    label="Media id"
+                    floatingLabel
+                />
+
+                <Button>Add user</Button>
+            </div>
+        )
+    }
+    renderSelectFriend () {
+        let { isFriendListLoading } = this.props
+
+        if (isFriendListLoading) {
+            return (
+                <div>
+                    <h5>Friend List</h5>
+                    <Spinner />
+                </div>
+            )
+        }
+
         return (
             <Grid>
                 <Cell col={12}>
-                    {/* Plex Username - optional */}
-                    <label htmlFor="plexUsername">Plex Username:</label>
-                    {' '}
-                    <input
-                        name="plexUsername"
-                        type="text"
-                        id="plexUsername"
-                        ref={input => this.userInput = input}
-                    />
-                </Cell>
-                <Cell col={12}>
-                    {/* Plex User ID - optional */}
-                    <label htmlFor="plexUserID">Plex User ID:</label>
-                    {' '}
-                    <input
-                        name="plexUserID"
-                        type="text"
-                        id="plexUserID"
-                    />
-                </Cell>
-                <Cell col={12}>
-                    {/* Media ID - required */}
-                    <label htmlFor="mediaID">Media ID:</label>
-                    {' '}
-                    <input
-                        name="mediaID"
-                        type="text"
-                        id="mediaID"
-                    />
+                    <h5>Friend List</h5>
+                    
+                    <List style={styles.friendList}>
+                        <ListItem onClick={() => this.handleSelectFriend({ id: '9873', username: 'siirclutch'})} >
+                            <ListItemContent>siirclutch</ListItemContent>
+                            <ListItemAction><a><Icon name="arrow_forward" /></a></ListItemAction>
+                        </ListItem>
+                        <ListItem onClick={() => this.handleSelectFriend({ id: '9876', username: 'siirclutch-guest'})} >
+                            <ListItemContent>siirclutch-guest</ListItemContent>
+                            <ListItemAction><a><Icon  name="arrow_forward" /></a></ListItemAction>
+                        </ListItem>
+                    </List>
                 </Cell>
             </Grid>
         )
@@ -63,16 +139,17 @@ class User extends Component {
         return (
             <Grid>
                 <Cell col={12}>
-                    <label htmlFor="plexUsername">Plex Username:</label>
-                    {' '}
-                    <input
-                        name="plexUsername"
-                        type="text"
-                        id="plexUsername"
+                    <Textfield
+                        label="Plex Username"
+                        floatingLabel
                     />
                 </Cell>
                 <Cell col={12}>
-                    <Checkbox label="Use labels (requires plex pass)" />
+                    {/*<Checkbox label="Use labels (requires plex pass)" />*/}
+                    <Textfield
+                        label="Media id"
+                        floatingLabel
+                    />
                 </Cell>
                 <Cell col={12}>
                     <Button>Invite</Button>
@@ -87,24 +164,45 @@ class User extends Component {
                     Does the user already have access to your Plex library?
                 </Cell>
                 <Cell col={6}>
-                    <Button onClick={() => { this.showFinalForm() }}>Yes</Button>
+                    <Button onClick={() => { this.show('selectfriend') }}>Yes</Button>
                 </Cell>
                 <Cell col={6}>
-                    <Button onClick={() => { this.showInviteForm() }}>No, let's invite them</Button>
+                    <Button onClick={() => { this.show('inviteform') }}>No, invite them</Button>
                 </Cell>
             </Grid>
         )
     }
     render () {
         let { form } = this.state
-        
-        switch (form) {
-            case 'inviteform':
-                return this.renderInviteForm()
-            default:
-                return this.renderStepOne()
-        }
+
+        return (
+            <Grid>
+                <Cell col={1}>
+                    <a><Icon onClick={() => this.handleGoBack()} name="arrow_back" /></a>
+                </Cell>
+                <Cell col={11}>
+                    {(() => {
+                        switch (form) {
+                            case 'inviteform':
+                                return this.renderInviteForm()
+                            case 'selectfriend':
+                                return this.renderSelectFriend()
+                            case 'finalform':
+                                return this.renderFinalForm()
+                            default:
+                                return this.renderStepOne()
+                        }
+                    })()}
+                </Cell>
+            </Grid>
+        )
     }
 }
 
-export default User
+AddUser.propTypes = {
+    friends: Proptypes.array.isRequired,
+    isFriendListLoading: Proptypes.bool.isRequired,
+    getFriends: Proptypes.func.isRequired
+}
+
+export default AddUser

@@ -1,1 +1,4 @@
 export const ADD_USER = 'ADD_USER'
+export const FRIENDS_FETCH = 'FRIENDS_FETCH'
+export const FRIENDS_DONE_FETCHING = 'FRIENDS_DONE_FETCHING'
+export const FRIENDS_ADD = 'FRIENDS_ADD'
