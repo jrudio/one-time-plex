@@ -3,10 +3,10 @@ import Proptypes from 'prop-types'
 
 class Users extends Component {
     componentWillMount () {
-        let { addUser } = this.props
+        // let { addUser } = this.props
 
-        addUser()
-        addUser()
+        // addUser()
+        // addUser()
     }
     render () {
         let {
@@ -19,7 +19,7 @@ class Users extends Component {
             return <div></div>
         }
 
-        return <div>{this.props.users.map((user, i) => <p key={i}>{user.name}</p>)}</div>
+        return <div>{this.props.users.map((user, i) => <p key={i}>{user.plexUsername} - <i>{user.title}</i> {'(' + user.assignedMediaID + ')'} </p>)}</div>
     }
 }
 

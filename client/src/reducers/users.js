@@ -4,12 +4,11 @@ export default (state = [], action) => {
     switch (action.type) {
         case ADD_USER:
             let newState = []
+            console.log(action)
 
-            let newUser = {
-                name: action.name,
-                plexUserID: action.plexUserID,
-                assignedMediaID: action.assignedMediaID
-            }
+            delete action.type
+
+            let newUser = action
 
             newState.push(newUser)
 

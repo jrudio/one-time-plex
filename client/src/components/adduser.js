@@ -31,9 +31,10 @@ class AddUser extends Component {
             form: 'stepone',
             previousForm: [],
             selectedFriend: {
-                id: '',
-                username: '',
+                plexUserID: '',
+                plexUsername: '',
                 serverName: '',
+                assignedMediaID: '',
                 serverMachineID: ''
             },
         })
@@ -77,14 +78,52 @@ class AddUser extends Component {
             selectedFriend
         } = this.state
 
-        selectedFriend.id = id
-        selectedFriend.username = username
+        selectedFriend.plexUserID = id
+        selectedFriend.plexUsername = username
 
         this.setState({
             selectedFriend
         })
 
         this.show('finalform')
+    }
+    handleMediaID (e) {
+        let { target, which } = e
+
+        if (which === 13) {
+            this.handleAddUser()
+            return
+        }
+
+        let { selectedFriend } = this.state
+
+        selectedFriend.assignedMediaID = target.value
+
+        this.setState({
+            selectedFriend
+        })
+    }
+    handleAddUser () {
+        let {
+            selectedFriend
+        } = this.state
+
+        let {
+            plexUserID,
+            plexUsername,
+            assignedMediaID
+        } = selectedFriend
+
+        if (plexUserID === '' || plexUserID === 0 || plexUsername === '' || !assignedMediaID) {
+            console.error('missing required friend info')
+            return
+        }
+
+        let {
+            addUser
+        } = this.props
+
+        addUser(selectedFriend)
     }
     renderFinalForm () {
         let {
@@ -93,14 +132,15 @@ class AddUser extends Component {
 
         return (
             <div>
-                <pre>{selectedFriend.username} - (Plex user id: {selectedFriend.id})</pre>
+                <pre>{selectedFriend.plexUsername} - (Plex user id: {selectedFriend.plexUserID})</pre>
 
                 <Textfield
                     label="Media id"
+                    onKeyUp={e => this.handleMediaID(e)}
                     floatingLabel
                 />
 
-                <Button>Add user</Button>
+                <Button onClick={()=> this.handleAddUser()} >Add user</Button>
             </div>
         )
     }
@@ -142,6 +182,7 @@ class AddUser extends Component {
                     <Textfield
                         label="Plex Username"
                         floatingLabel
+                        disabled
                     />
                 </Cell>
                 <Cell col={12}>
@@ -149,10 +190,11 @@ class AddUser extends Component {
                     <Textfield
                         label="Media id"
                         floatingLabel
+                        disabled
                     />
                 </Cell>
                 <Cell col={12}>
-                    <Button>Invite</Button>
+                    <Button disabled>Invite</Button>
                 </Cell>
             </Grid>
         )

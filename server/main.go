@@ -168,9 +168,10 @@ func AddUser(db *storm.DB) func(w http.ResponseWriter, r *http.Request) {
 		var resp clientResponse
 
 		// check for required parameters
-		plexUsername := r.PostFormValue("username")
+		plexUsername := r.PostFormValue("plexusername")
 		plexUserIDBody := r.PostFormValue("plexuserid")
-		mediaID := r.PostFormValue("mediaID")
+		mediaID := r.PostFormValue("assignedmediaid")
+		// title := r.PostFormValue("title")
 
 		if plexUserIDBody == "" || mediaID == "" {
 			resp.Err = "missing 'plexuserid' and/or 'mediaID' in the post form body"

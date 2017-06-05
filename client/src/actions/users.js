@@ -14,19 +14,14 @@ const friendsHaveBeenFetched = {
     type: FRIENDS_DONE_FETCHING
 }
 
-export const addUser = user => {
+export const addUser = (user = {}) => {
     return dispatch => {
         // make POST request to server
 
         // get result
         let res = {
             err: null,
-            result: {
-                name: 'jrudio',
-                plexUserID: 1,
-                assignedMediaID: '3214',
-                title: 'Better Call Saul: Lawyer'
-            }
+            result: user
         }
 
         return dispatch({
