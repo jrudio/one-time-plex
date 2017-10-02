@@ -39,9 +39,9 @@ class AddUser extends Component {
             },
         })
 
-        let { getFriends } = this.props
+        // let { getFriends } = this.props
 
-        getFriends()
+        // getFriends()
     }
     show (newForm = '') {
         let { form, previousForm } = this.state
@@ -145,13 +145,19 @@ class AddUser extends Component {
         )
     }
     renderSelectFriend () {
-        let { isFriendListLoading } = this.props
+        let {
+            friends,
+            isFriendListLoading,
+            errorMsg
+        } = this.props
 
-        if (isFriendListLoading) {
+        if (friends && friends.length === 0) {
             return (
                 <div>
                     <h5>Friend List</h5>
-                    <Spinner />
+                    
+                    {isFriendListLoading && (<Spinner />)}
+                    {!isFriendListLoading && errorMsg && (<pre>{errorMsg}</pre>)}
                 </div>
             )
         }
@@ -162,14 +168,20 @@ class AddUser extends Component {
                     <h5>Friend List</h5>
                     
                     <List style={styles.friendList}>
-                        <ListItem onClick={() => this.handleSelectFriend({ id: '9873', username: 'siirclutch'})} >
+                        {friends && friends.map(friend => <ListItem onClick={(e) => { console.log(e.target); this.handleSelectFriend({ id: friend.id, username: friend.username })}} >
+                                <ListItemContent>{friend.username}</ListItemContent>
+                                <ListItemAction><a><Icon name="arrow_forward" /></a></ListItemAction>
+                            </ListItem>
+                        )}
+                        
+                        {/*<ListItem onClick={() => this.handleSelectFriend({ id: '9873', username: 'siirclutch'})} >
                             <ListItemContent>siirclutch</ListItemContent>
                             <ListItemAction><a><Icon name="arrow_forward" /></a></ListItemAction>
                         </ListItem>
                         <ListItem onClick={() => this.handleSelectFriend({ id: '9876', username: 'siirclutch-guest'})} >
                             <ListItemContent>siirclutch-guest</ListItemContent>
                             <ListItemAction><a><Icon  name="arrow_forward" /></a></ListItemAction>
-                        </ListItem>
+                        </ListItem>*/}
                     </List>
                 </Cell>
             </Grid>
@@ -206,7 +218,12 @@ class AddUser extends Component {
                     Does the user already have access to your Plex library?
                 </Cell>
                 <Cell col={6}>
-                    <Button onClick={() => { this.show('selectfriend') }}>Yes</Button>
+                    <Button onClick={() => {
+                            this.show('selectfriend')
+                            let { getFriends } = this.props
+                                getFriends()
+                        }}>Yes
+                    </Button>
                 </Cell>
                 <Cell col={6}>
                     <Button onClick={() => { this.show('inviteform') }}>No, invite them</Button>
@@ -220,7 +237,7 @@ class AddUser extends Component {
         return (
             <Grid>
                 <Cell col={1}>
-                    <a><Icon onClick={() => this.handleGoBack()} name="arrow_back" /></a>
+                    {form !== 'stepone' && (<a><Icon onClick={() => this.handleGoBack()} name="arrow_back" /></a>)}
                 </Cell>
                 <Cell col={11}>
                     {(() => {
@@ -244,6 +261,7 @@ class AddUser extends Component {
 AddUser.propTypes = {
     friends: Proptypes.array.isRequired,
     isFriendListLoading: Proptypes.bool.isRequired,
+    errorMsg: Proptypes.string,
     getFriends: Proptypes.func.isRequired
 }
 

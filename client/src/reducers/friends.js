@@ -1,10 +1,11 @@
 import {
     FRIENDS_FETCH,
     FRIENDS_DONE_FETCHING,
+    FRIENDS_ERROR,
     FRIENDS_ADD
  } from '../constants/users'
 
-export default (state = { friendList: [], isFriendListLoading: true }, action) => {
+export default (state = { friendList: [], isFriendListLoading: true, errorMsg: '' }, action) => {
     switch (action.type) {
         case FRIENDS_FETCH:
             return Object.assign({}, state, { isFriendListLoading: true })
@@ -14,6 +15,10 @@ export default (state = { friendList: [], isFriendListLoading: true }, action) =
             let friendList = [].concat(action.friends)
 
             return Object.assign({}, state, { friendList })
+        case FRIENDS_ERROR:
+            let { errorMsg } = action
+
+            return Object.assign({}, state, { errorMsg })
         default:
             return state
     }

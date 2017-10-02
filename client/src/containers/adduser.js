@@ -11,13 +11,17 @@ const AddUserContainer = props => {
 
 const mapStateToProps = (state) => {
     let { friends } = state
-    let { isFriendListLoading } = friends
+    let {
+        isFriendListLoading,
+        errorMsg
+    } = friends
     
     console.log(state)
     
     return {
         friends: friends.friendList,
-        isFriendListLoading
+        isFriendListLoading,
+        errorMsg
     }
 }
 

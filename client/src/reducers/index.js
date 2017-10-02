@@ -11,6 +11,7 @@ import Search from './search'
         friends: {
             friendList: [ { id: '1234', username: 'jrudio-guest' } ],
             isFriendListLoading: true,
+            errMsg: ''
         },
         search: {
             errorMSG: '',
