@@ -23,6 +23,9 @@ const styles = {
     searchResults: {
         overflowY: 'overlay',
         height: '300px'
+    },
+    selected: {
+        border: '#ff4081 0.2em solid'
     }
 }
 
@@ -69,8 +72,16 @@ class Search extends Component {
         this.handleAddMedia(title, mediaID)
     }
     renderSearchResults (results) {
+        let { selectedMediaID } = this.state
+
         return <List style={styles.searchResults} >  
             {results && results.map((r, i) => {
+                let highlighted = {}
+
+                if (selectedMediaID === r.mediaID) {
+                    highlighted = styles.selected
+                }
+                
                 /* default movie or episode */
                 let iconType = 'add'
 
@@ -80,7 +91,7 @@ class Search extends Component {
                 
                 return (
                     <ListItem key={i}>
-                        <ListItemContent onClick={(e) => this.handleSelectResult(e, r.type, r.mediaID, r.title)} >{r.title} {r.year && '(' + r.year + ')' }</ListItemContent>
+                        <ListItemContent style={highlighted} onClick={(e) => this.handleSelectResult(e, r.type, r.mediaID, r.title)} >{r.title} {r.year && '(' + r.year + ')' }</ListItemContent>
                         <ListItemAction>
                             <a><Icon name={iconType} onClick={(e) => this.handleSelectResult(e, r.type, r.mediaID, r.title)} /></a>
                         </ListItemAction>
