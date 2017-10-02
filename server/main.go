@@ -14,12 +14,26 @@ import (
 	"github.com/asdine/storm"
 	"github.com/gorilla/mux"
 	"github.com/jrudio/go-plex-client"
-	"github.com/rs/xid"
 )
 
 const databaseFileName = "onetimeplex.db"
 
 var cwd string
+
+type plexSearchResults struct {
+	Title     string `json:"title"`
+	Year      string `json:"year"`
+	MediaID   string `json:"mediaID"`
+	MediaType string `json:"type"`
+}
+
+type plexFriend struct {
+	ID              string `json:"id"`
+	Username        string `json:"username"`
+	ServerName      string `json:"serverName"`
+	ServerID        string `json:"serverID"`
+	ServerMachineID string `json:"serverMachineID"`
+}
 
 type clientResponse struct {
 	Result interface{} `json:"result"`
@@ -28,9 +42,10 @@ type clientResponse struct {
 
 type restrictedUser struct {
 	ID              string `storm:"id" json:"id"`
-	Name            string `json:"name"`
-	PlexUserID      int    `storm:"unique" json:"plexUserID"`
+	Name            string `json:"plexUsername"`
+	PlexUserID      string `storm:"unique" json:"plexUserID"`
 	AssignedMediaID string `json:"assignedMediaID"`
+	Title           string `json:"title"`
 }
 
 type usersPayload struct {
@@ -46,6 +61,10 @@ func (r restrictedUser) toBytes() ([]byte, error) {
 }
 
 func (c clientResponse) Write(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "POST GET")
+
 	response, err := json.Marshal(&c)
 
 	if err != nil {
@@ -143,34 +162,56 @@ func OnStop(db *storm.DB, plexConnection *plex.Plex) func(wh plex.Webhook) {
 }
 
 // AddUser adds a user that needs to be monitored
-func AddUser(db *storm.DB) func(w http.ResponseWriter, r *http.Request) {
+func AddUser(db *storm.DB, plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var user restrictedUser
 		var resp clientResponse
 
 		// check for required parameters
-		plexUsername := r.PostFormValue("username")
-		plexUserIDBody := r.PostFormValue("plexuserid")
-		mediaID := r.PostFormValue("mediaID")
+		defer r.Body.Close()
 
-		if plexUserIDBody == "" || mediaID == "" {
+		if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+			resp.Err = fmt.Sprintf("failed to decode json body: %v", err)
+			resp.Write(w)
+			return
+		}
+
+		if user.PlexUserID == "" || user.AssignedMediaID == "" {
 			resp.Err = "missing 'plexuserid' and/or 'mediaID' in the post form body"
 			resp.Write(w)
 			return
 		}
 
-		plexUserID, err := strconv.Atoi(plexUserIDBody)
+		// user.ID = xid.New().String()
+		// user.Name = plexUsername
+		// user.PlexUserID = plexUserID
+		// user.AssignedMediaID = mediaID
+
+		metadata, err := plexConnection.GetMetadata(user.AssignedMediaID)
 
 		if err != nil {
-			resp.Err = "failed to convert plexuserid to int"
+			resp.Err = fmt.Sprintf("failed to fetch title for media id %s: %v", user.AssignedMediaID, err)
 			resp.Write(w)
 			return
 		}
 
-		user.ID = xid.New().String()
-		user.Name = plexUsername
-		user.PlexUserID = plexUserID
-		user.AssignedMediaID = mediaID
+		metadataLen := metadata.MediaContainer.Size
+
+		if metadataLen > 0 {
+			data := metadata.MediaContainer.Metadata[0]
+
+			var title string
+
+			// combine show name, season, and episode name if type == episode
+			if data.Type == "episode" {
+				title = data.GrandparentTitle + ": " + data.ParentTitle + " - " + data.Title
+			} else {
+				// type is movie just need the title
+				title = metadata.MediaContainer.Metadata[0].Title
+			}
+
+			user.Title = title
+		}
 
 		if err := db.Save(&user); err != nil {
 			resp.Err = fmt.Sprintf("failed to save user: %v\n", err)
@@ -179,8 +220,6 @@ func AddUser(db *storm.DB) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp.Result = user
-
-		w.Header().Set("Content-Type", "application/json")
 
 		resp.Write(w)
 	}
@@ -201,6 +240,135 @@ func GetAllUsers(db *storm.DB) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp.Result = users
+		resp.Write(w)
+	}
+}
+
+func filterSearchResults(results plex.SearchResults) []plexSearchResults {
+	var newResults []plexSearchResults
+
+	count := results.MediaContainer.Size
+
+	if count == 0 {
+		return newResults
+	}
+
+	for _, r := range results.MediaContainer.Metadata {
+		filtered := plexSearchResults{
+			MediaType: r.Type,
+			MediaID:   r.RatingKey,
+			Title:     r.Title,
+			Year:      "N/A", // default to n/a if we can't convert to string
+		}
+
+		if year := strconv.FormatInt(r.Year, 10); year != "" {
+			filtered.Year = year
+		}
+
+		newResults = append(newResults, filtered)
+	}
+
+	return newResults
+}
+
+// SearchPlex is an endpoint that will search your Plex Media Server for media
+func SearchPlex(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		var resp clientResponse
+
+		searchQuery := r.URL.Query().Get("title")
+
+		if searchQuery == "" {
+			resp.Err = "missing search query: 'title'"
+			resp.Write(w)
+			return
+		}
+
+		results, err := plexConnection.Search(searchQuery)
+
+		if err != nil {
+			resp.Err = fmt.Sprintf("search on plex media server failed: %v", err)
+			resp.Write(w)
+			return
+		}
+
+		// filter results with relevant information
+		resp.Result = filterSearchResults(results)
+
+		resp.Write(w)
+	}
+}
+
+// GetPlexFriends will return an array of usernames and ids that are friends with associated plex token
+func GetPlexFriends(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var resp clientResponse
+
+		friends, err := plexConnection.GetFriends()
+
+		if err != nil {
+			resp.Err = fmt.Sprintf("failed to fetch friends from plex: %v", err)
+			resp.Write(w)
+			return
+		}
+
+		var friendsFiltered []plexFriend
+
+		for _, friend := range friends {
+			filteredFriend := plexFriend{
+				ID:              strconv.Itoa(friend.ID),
+				Username:        friend.Username,
+				ServerID:        friend.Server.ID,
+				ServerMachineID: friend.Server.MachineIdentifier,
+				ServerName:      friend.Server.Name,
+			}
+
+			friendsFiltered = append(friendsFiltered, filteredFriend)
+		}
+
+		resp.Result = friendsFiltered
+		resp.Write(w)
+	}
+}
+
+// GetMetadataFromPlex fetches metadata of media from plex
+func GetMetadataFromPlex(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var resp clientResponse
+
+		mediaID := r.URL.Query().Get("mediaid")
+
+		if mediaID == "" {
+			resp.Err = "missing id from query: 'mediaID'"
+			w.WriteHeader(http.StatusBadRequest)
+			resp.Write(w)
+			return
+		}
+
+		metadata, err := plexConnection.GetMetadataChildren(mediaID)
+
+		if err != nil {
+			resp.Err = fmt.Sprintf("failed to grab metadata from plex: %v", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			resp.Write(w)
+			return
+		}
+
+		var results []plexSearchResults
+
+		for _, child := range metadata.MediaContainer.Metadata {
+			newResult := plexSearchResults{
+				Title:     child.ParentTitle + " - " + child.Title,
+				MediaID:   child.RatingKey,
+				MediaType: child.Type,
+			}
+
+			results = append(results, newResult)
+		}
+
+		resp.Result = results
+
 		resp.Write(w)
 	}
 }
@@ -274,10 +442,19 @@ func main() {
 	apiRouter := router.PathPrefix("/api").Subrouter()
 
 	// add new restricted user
-	apiRouter.HandleFunc("/users/add", AddUser(db)).Methods("POST")
+	apiRouter.HandleFunc("/users/add", AddUser(db, plexConnection)).Methods("POST")
 
 	// list restricted users
 	apiRouter.HandleFunc("/users", GetAllUsers(db)).Methods("GET")
+
+	// search media on plex
+	apiRouter.HandleFunc("/search", SearchPlex(plexConnection)).Methods("GET")
+
+	// get plex friends
+	apiRouter.HandleFunc("/friends", GetPlexFriends(plexConnection)).Methods("GET")
+
+	// get child data from plex
+	apiRouter.HandleFunc("/metadata", GetMetadataFromPlex(plexConnection)).Methods("GET")
 
 	fmt.Printf("serving one time plex on %s\n", config.Host)
 
