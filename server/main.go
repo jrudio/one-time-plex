@@ -14,7 +14,6 @@ import (
 	"github.com/asdine/storm"
 	"github.com/gorilla/mux"
 	"github.com/jrudio/go-plex-client"
-	"github.com/rs/xid"
 )
 
 const databaseFileName = "onetimeplex.db"
@@ -43,9 +42,10 @@ type clientResponse struct {
 
 type restrictedUser struct {
 	ID              string `storm:"id" json:"id"`
-	Name            string `json:"name"`
-	PlexUserID      int    `storm:"unique" json:"plexUserID"`
+	Name            string `json:"plexUsername"`
+	PlexUserID      string `storm:"unique" json:"plexUserID"`
 	AssignedMediaID string `json:"assignedMediaID"`
+	Title           string `json:"title"`
 }
 
 type usersPayload struct {
@@ -162,35 +162,56 @@ func OnStop(db *storm.DB, plexConnection *plex.Plex) func(wh plex.Webhook) {
 }
 
 // AddUser adds a user that needs to be monitored
-func AddUser(db *storm.DB) func(w http.ResponseWriter, r *http.Request) {
+func AddUser(db *storm.DB, plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var user restrictedUser
 		var resp clientResponse
 
 		// check for required parameters
-		plexUsername := r.PostFormValue("plexusername")
-		plexUserIDBody := r.PostFormValue("plexuserid")
-		mediaID := r.PostFormValue("assignedmediaid")
-		// title := r.PostFormValue("title")
+		defer r.Body.Close()
 
-		if plexUserIDBody == "" || mediaID == "" {
+		if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+			resp.Err = fmt.Sprintf("failed to decode json body: %v", err)
+			resp.Write(w)
+			return
+		}
+
+		if user.PlexUserID == "" || user.AssignedMediaID == "" {
 			resp.Err = "missing 'plexuserid' and/or 'mediaID' in the post form body"
 			resp.Write(w)
 			return
 		}
 
-		plexUserID, err := strconv.Atoi(plexUserIDBody)
+		// user.ID = xid.New().String()
+		// user.Name = plexUsername
+		// user.PlexUserID = plexUserID
+		// user.AssignedMediaID = mediaID
+
+		metadata, err := plexConnection.GetMetadata(user.AssignedMediaID)
 
 		if err != nil {
-			resp.Err = "failed to convert plexuserid to int"
+			resp.Err = fmt.Sprintf("failed to fetch title for media id %s: %v", user.AssignedMediaID, err)
 			resp.Write(w)
 			return
 		}
 
-		user.ID = xid.New().String()
-		user.Name = plexUsername
-		user.PlexUserID = plexUserID
-		user.AssignedMediaID = mediaID
+		metadataLen := metadata.MediaContainer.Size
+
+		if metadataLen > 0 {
+			data := metadata.MediaContainer.Metadata[0]
+
+			var title string
+
+			// combine show name, season, and episode name if type == episode
+			if data.Type == "episode" {
+				title = data.GrandparentTitle + ": " + data.ParentTitle + " - " + data.Title
+			} else {
+				// type is movie just need the title
+				title = metadata.MediaContainer.Metadata[0].Title
+			}
+
+			user.Title = title
+		}
 
 		if err := db.Save(&user); err != nil {
 			resp.Err = fmt.Sprintf("failed to save user: %v\n", err)
@@ -199,8 +220,6 @@ func AddUser(db *storm.DB) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp.Result = user
-
-		w.Header().Set("Content-Type", "application/json")
 
 		resp.Write(w)
 	}
@@ -423,7 +442,7 @@ func main() {
 	apiRouter := router.PathPrefix("/api").Subrouter()
 
 	// add new restricted user
-	apiRouter.HandleFunc("/users/add", AddUser(db)).Methods("POST")
+	apiRouter.HandleFunc("/users/add", AddUser(db, plexConnection)).Methods("POST")
 
 	// list restricted users
 	apiRouter.HandleFunc("/users", GetAllUsers(db)).Methods("GET")
