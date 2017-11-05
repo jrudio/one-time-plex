@@ -14,6 +14,7 @@ import (
 	"github.com/asdine/storm"
 	"github.com/gorilla/mux"
 	"github.com/jrudio/go-plex-client"
+	"github.com/rs/xid"
 )
 
 const databaseFileName = "onetimeplex.db"
@@ -182,7 +183,7 @@ func AddUser(db *storm.DB, plexConnection *plex.Plex) func(w http.ResponseWriter
 			return
 		}
 
-		// user.ID = xid.New().String()
+		user.ID = xid.New().String()
 		// user.Name = plexUsername
 		// user.PlexUserID = plexUserID
 		// user.AssignedMediaID = mediaID
