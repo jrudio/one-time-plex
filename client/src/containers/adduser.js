@@ -1,13 +1,13 @@
-import React from 'react'
+// import React from 'react'
 import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import AddUser from '../components/adduser'
 import { addUser, getFriends } from '../actions/users'
 
-const AddUserContainer = props => {
-    console.log(props)
-    return <AddUser {...props} />
-}
+// const AddUserContainer = props => {
+//     console.log(props)
+//     return <AddUser {...props} />
+// }
 
 const mapStateToProps = (state) => {
     let { friends } = state
@@ -33,4 +33,5 @@ const mapDispatchToProps = dispatch => ({
 export default connect(
     mapStateToProps,
     mapDispatchToProps
-)(AddUserContainer)
+)(AddUser)
+// )(AddUserContainer)

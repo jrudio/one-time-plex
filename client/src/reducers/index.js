@@ -7,7 +7,10 @@ import Search from './search'
     Example state
 
     {
-        users: [ {plexUserID: '1954', plexusername: 'jrudio' } ],
+        users: {
+            list: [ {plexUserID: '1954', plexusername: 'jrudio' } ],
+            isLoading: true
+        },
         friends: {
             friendList: [ { id: '1234', username: 'jrudio-guest' } ],
             isFriendListLoading: true,

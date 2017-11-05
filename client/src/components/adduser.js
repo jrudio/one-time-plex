@@ -20,7 +20,11 @@ const styles = {
         height: '300px'
     },
     navback: {
-        float: 'left'
+        float: 'left',
+        cursor: 'pointer'
+    },
+    pointer: {
+        cursor: 'pointer'
     }
 }
 
@@ -168,20 +172,11 @@ class AddUser extends Component {
                     <h5>Friend List</h5>
                     
                     <List style={styles.friendList}>
-                        {friends && friends.map(friend => <ListItem onClick={(e) => { console.log(e.target); this.handleSelectFriend({ id: friend.id, username: friend.username })}} >
+                        {friends && friends.map((friend, i) => <ListItem key={i} style={styles.pointer} onClick={(e) => { console.log(e.target); this.handleSelectFriend({ id: friend.id, username: friend.username })}} >
                                 <ListItemContent>{friend.username}</ListItemContent>
                                 <ListItemAction><a><Icon name="arrow_forward" /></a></ListItemAction>
                             </ListItem>
                         )}
-                        
-                        {/*<ListItem onClick={() => this.handleSelectFriend({ id: '9873', username: 'siirclutch'})} >
-                            <ListItemContent>siirclutch</ListItemContent>
-                            <ListItemAction><a><Icon name="arrow_forward" /></a></ListItemAction>
-                        </ListItem>
-                        <ListItem onClick={() => this.handleSelectFriend({ id: '9876', username: 'siirclutch-guest'})} >
-                            <ListItemContent>siirclutch-guest</ListItemContent>
-                            <ListItemAction><a><Icon  name="arrow_forward" /></a></ListItemAction>
-                        </ListItem>*/}
                     </List>
                 </Cell>
             </Grid>
@@ -226,7 +221,7 @@ class AddUser extends Component {
                     </Button>
                 </Cell>
                 <Cell col={6}>
-                    <Button onClick={() => { this.show('inviteform') }}>No, invite them</Button>
+                    <Button onClick={() => { this.show('inviteform') }}>No</Button>
                 </Cell>
             </Grid>
         )
@@ -234,10 +229,11 @@ class AddUser extends Component {
     render () {
         let { form } = this.state
 
+        console.log(form)
         return (
             <Grid>
                 <Cell col={1}>
-                    {form !== 'stepone' && (<a><Icon onClick={() => this.handleGoBack()} name="arrow_back" /></a>)}
+                    {form !== 'stepone' && form !== undefined && (<a><Icon onClick={() => this.handleGoBack()} name="arrow_back" style={styles.navback} /></a>)}
                 </Cell>
                 <Cell col={11}>
                     {(() => {

@@ -21,21 +21,21 @@ class App extends Component {
 
         <div style={{ width: '80%', margin: 'auto'}}>
           <Grid>
-            <Cell col={12}>
-              <h4>Restricted Users:</h4>
-
-              <Users />
-            </Cell>
-            <Cell col={6}>
+            <Cell col={4}>
               <h4>Add User:</h4>
               
               <AddUser />
             </Cell>
 
-            <Cell col={6}>
+            <Cell col={4}>
               <h4>Search Plex:</h4>
 
               <Search />
+            </Cell>
+            <Cell col={4}>
+              <h4>Monitored Users:</h4>
+
+              <Users />
             </Cell>
           </Grid>
         </div>

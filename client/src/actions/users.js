@@ -3,7 +3,9 @@ import {
     FRIENDS_ADD,
     FRIENDS_FETCH,
     FRIENDS_DONE_FETCHING,
-    FRIENDS_ERROR
+    FRIENDS_ERROR,
+    MONITORED_USERS_HAVE_BEEN_FETCHED,
+    MONITORED_USERS_FETCH
  } from '../constants/users'
 // import fetch from 'isomorphic-fetch'
 
@@ -14,6 +16,15 @@ const fetchFriends = {
 const friendsHaveBeenFetched = {
     type: FRIENDS_DONE_FETCHING
 }
+
+const fetchMonitoredUsers = {
+    type: MONITORED_USERS_FETCH
+}
+
+const monitoredUsersFetched = users => ({
+    users,
+    type: MONITORED_USERS_HAVE_BEEN_FETCHED
+})
 
 const fetchedErr = err => ({
     type: FRIENDS_ERROR,
@@ -76,3 +87,26 @@ export const getFriends = () => {
             })
     }
 }
+
+export const getMonitoredUsers = () => {
+    return dispatch => {
+        dispatch(fetchMonitoredUsers)
+        
+        return fetch(window.otp.url + '/users')
+            .then(r => r.json())
+            .then(r => {
+                console.log(r)
+                
+                return dispatch(monitoredUsersFetched(r.result))
+            })
+            .catch(e => {
+                dispatch(monitoredUsersFetched())
+
+                console.error(e.message)
+                // dispatch(fetchedErr(e.message))
+            })
+
+    }
+}
+
+window.ayy = getMonitoredUsers
