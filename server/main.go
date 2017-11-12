@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/dgraph-io/badger"
@@ -66,7 +67,7 @@ func (r restrictedUser) toBytes() ([]byte, error) {
 	return json.Marshal(r)
 }
 
-func (c clientResponse) Write(w http.ResponseWriter) error {
+func (c clientResponse) Write(w http.ResponseWriter, errCode int) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "POST GET")
@@ -76,6 +77,12 @@ func (c clientResponse) Write(w http.ResponseWriter) error {
 	if err != nil {
 		return err
 	}
+
+	if errCode == 0 {
+		errCode = http.StatusOK
+	}
+
+	w.WriteHeader(errCode)
 
 	_, err = w.Write(response)
 
@@ -97,6 +104,30 @@ func unserializeServer(serializedServer []byte) (server, error) {
 	err := json.Unmarshal(serializedServer, &s)
 
 	return s, err
+}
+
+// plexServer is a wrapper around plex.Plex to make setting the url and token safe for conccurent use
+type plexServer struct {
+	*plex.Plex
+	lock sync.Mutex
+}
+
+func (p *plexServer) setURL(newURL string) {
+	p.lock.Lock()
+	p.URL = newURL
+	p.lock.Unlock()
+}
+
+func (p *plexServer) setToken(newToken string) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	p.Token = newToken
+}
+
+func (p *plexServer) getURL() string {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	return p.URL
 }
 
 // OnPlay reads and reacts to the webhook sent from Plex
@@ -255,23 +286,23 @@ func OnStop(db *storm.DB, plexConnection *plex.Plex) func(wh plex.Webhook) {
 // }
 
 // GetAllUsers returns all monitored users
-func GetAllUsers(db *storm.DB) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+// func GetAllUsers(db *storm.DB) func(w http.ResponseWriter, r *http.Request) {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		w.Header().Set("Content-Type", "application/json")
 
-		var users []restrictedUser
-		var resp clientResponse
+// 		var users []restrictedUser
+// 		var resp clientResponse
 
-		if err := db.All(&users); err != nil {
-			resp.Err = fmt.Sprintf("failed to retrieve users: %v\n", err)
-			resp.Write(w)
-			return
-		}
+// 		if err := db.All(&users); err != nil {
+// 			resp.Err = fmt.Sprintf("failed to retrieve users: %v\n", err)
+// 			resp.Write(w)
+// 			return
+// 		}
 
-		resp.Result = users
-		resp.Write(w)
-	}
-}
+// 		resp.Result = users
+// 		resp.Write(w)
+// 	}
+// }
 
 func filterSearchResults(results plex.SearchResults) []plexSearchResults {
 	var newResults []plexSearchResults
@@ -301,7 +332,7 @@ func filterSearchResults(results plex.SearchResults) []plexSearchResults {
 }
 
 // SearchPlex is an endpoint that will search your Plex Media Server for media
-func SearchPlex(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
+func SearchPlex(plexConnection *plexServer) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		var resp clientResponse
@@ -310,7 +341,7 @@ func SearchPlex(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.R
 
 		if searchQuery == "" {
 			resp.Err = "missing search query: 'title'"
-			resp.Write(w)
+			resp.Write(w, http.StatusBadRequest)
 			return
 		}
 
@@ -318,89 +349,89 @@ func SearchPlex(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.R
 
 		if err != nil {
 			resp.Err = fmt.Sprintf("search on plex media server failed: %v", err)
-			resp.Write(w)
+			resp.Write(w, http.StatusInternalServerError)
 			return
 		}
 
 		// filter results with relevant information
 		resp.Result = filterSearchResults(results)
 
-		resp.Write(w)
+		resp.Write(w, http.StatusOK)
 	}
 }
 
-// GetPlexFriends will return an array of usernames and ids that are friends with associated plex token
-func GetPlexFriends(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var resp clientResponse
+// // GetPlexFriends will return an array of usernames and ids that are friends with associated plex token
+// func GetPlexFriends(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		var resp clientResponse
 
-		friends, err := plexConnection.GetFriends()
+// 		friends, err := plexConnection.GetFriends()
 
-		if err != nil {
-			resp.Err = fmt.Sprintf("failed to fetch friends from plex: %v", err)
-			resp.Write(w)
-			return
-		}
+// 		if err != nil {
+// 			resp.Err = fmt.Sprintf("failed to fetch friends from plex: %v", err)
+// 			resp.Write(w)
+// 			return
+// 		}
 
-		var friendsFiltered []plexFriend
+// 		var friendsFiltered []plexFriend
 
-		for _, friend := range friends {
-			filteredFriend := plexFriend{
-				ID:              strconv.Itoa(friend.ID),
-				Username:        friend.Username,
-				ServerID:        friend.Server.ID,
-				ServerMachineID: friend.Server.MachineIdentifier,
-				ServerName:      friend.Server.Name,
-			}
+// 		for _, friend := range friends {
+// 			filteredFriend := plexFriend{
+// 				ID:              strconv.Itoa(friend.ID),
+// 				Username:        friend.Username,
+// 				ServerID:        friend.Server.ID,
+// 				ServerMachineID: friend.Server.MachineIdentifier,
+// 				ServerName:      friend.Server.Name,
+// 			}
 
-			friendsFiltered = append(friendsFiltered, filteredFriend)
-		}
+// 			friendsFiltered = append(friendsFiltered, filteredFriend)
+// 		}
 
-		resp.Result = friendsFiltered
-		resp.Write(w)
-	}
-}
+// 		resp.Result = friendsFiltered
+// 		resp.Write(w)
+// 	}
+// }
 
-// GetMetadataFromPlex fetches metadata of media from plex
-func GetMetadataFromPlex(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var resp clientResponse
+// // GetMetadataFromPlex fetches metadata of media from plex
+// func GetMetadataFromPlex(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		var resp clientResponse
 
-		mediaID := r.URL.Query().Get("mediaid")
+// 		mediaID := r.URL.Query().Get("mediaid")
 
-		if mediaID == "" {
-			resp.Err = "missing id from query: 'mediaID'"
-			w.WriteHeader(http.StatusBadRequest)
-			resp.Write(w)
-			return
-		}
+// 		if mediaID == "" {
+// 			resp.Err = "missing id from query: 'mediaID'"
+// 			w.WriteHeader(http.StatusBadRequest)
+// 			resp.Write(w)
+// 			return
+// 		}
 
-		metadata, err := plexConnection.GetMetadataChildren(mediaID)
+// 		metadata, err := plexConnection.GetMetadataChildren(mediaID)
 
-		if err != nil {
-			resp.Err = fmt.Sprintf("failed to grab metadata from plex: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			resp.Write(w)
-			return
-		}
+// 		if err != nil {
+// 			resp.Err = fmt.Sprintf("failed to grab metadata from plex: %v", err)
+// 			w.WriteHeader(http.StatusInternalServerError)
+// 			resp.Write(w)
+// 			return
+// 		}
 
-		var results []plexSearchResults
+// 		var results []plexSearchResults
 
-		for _, child := range metadata.MediaContainer.Metadata {
-			newResult := plexSearchResults{
-				Title:     child.ParentTitle + " - " + child.Title,
-				MediaID:   child.RatingKey,
-				MediaType: child.Type,
-			}
+// 		for _, child := range metadata.MediaContainer.Metadata {
+// 			newResult := plexSearchResults{
+// 				Title:     child.ParentTitle + " - " + child.Title,
+// 				MediaID:   child.RatingKey,
+// 				MediaType: child.Type,
+// 			}
 
-			results = append(results, newResult)
-		}
+// 			results = append(results, newResult)
+// 		}
 
-		resp.Result = results
+// 		resp.Result = results
 
-		resp.Write(w)
-	}
-}
+// 		resp.Write(w)
+// 	}
+// }
 
 func cleanup(ctrlC chan os.Signal, shutdown chan bool, db store) {
 	for {
@@ -422,6 +453,61 @@ func cleanup(ctrlC chan os.Signal, shutdown chan bool, db store) {
 			db.Close()
 			os.Exit(0)
 		}
+	}
+}
+
+// ConfigurePlexServer retrieve, add, edit, and delete plex server from one time plex
+func ConfigurePlexServer(db store, plexConnection *plexServer) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		var resp clientResponse
+
+		switch r.Method {
+		case "POST":
+			if err := r.ParseForm(); err != nil {
+				resp.Err = fmt.Sprintf("parsing body failed: %v", err)
+				resp.Write(w, http.StatusBadRequest)
+				return
+			}
+
+			plexURL := r.PostFormValue("url")
+			plexToken := r.PostFormValue("token")
+
+			resp.Result = fmt.Sprintf("received %s, %s", plexURL, plexToken)
+		case "PUT":
+			if err := r.ParseForm(); err != nil {
+				resp.Err = fmt.Sprintf("parsing body failed: %v", err)
+				resp.Write(w, http.StatusBadRequest)
+				return
+			}
+
+			if plexURL := r.FormValue("url"); plexURL != "" {
+				plexConnection.setURL(plexURL)
+
+				if err := db.savePlexServer(server{
+					Name: "default",
+					URL:  plexURL,
+				}); err != nil {
+					fmt.Printf("saving plex url failed: %v", err)
+				}
+			}
+			if plexToken := r.FormValue("token"); plexToken != "" {
+				plexConnection.setToken(plexToken)
+
+				if err := db.savePlexToken(plexToken); err != nil {
+					fmt.Printf("saving plex token failed: %v", err)
+				}
+			}
+
+			resp.Result = true
+
+		default:
+			resp.Err = "unknown method"
+			resp.Write(w, http.StatusMethodNotAllowed)
+			return
+		}
+
+		resp.Write(w, http.StatusOK)
 	}
 }
 
@@ -455,6 +541,7 @@ func main() {
 	// connect to datastore
 	db, err := initDataStore(storeDirectory)
 
+	// handle interrupts - i.e. control-c
 	go cleanup(ctrlC, shutdown, db)
 
 	if err != nil {
@@ -481,7 +568,7 @@ func main() {
 	}
 
 	// init plex stuff
-	plexServer, err := db.getPlexServer()
+	plexServerInfo, err := db.getPlexServer()
 
 	if isVerbose && err != nil {
 		fmt.Println("plex server:", err.Error())
@@ -491,12 +578,9 @@ func main() {
 		// init plex server in datastore
 		if err := db.savePlexServer(server{}); err != nil {
 			fmt.Printf("failed initializing plex server: %v", err)
-			// shutdown <- true
 		}
 	} else if err != nil {
 		fmt.Printf("failed retrieving plex server from data store: %v\n", err)
-		// shutdown <- true
-		// return
 	}
 
 	plexToken, err := db.getPlexToken()
@@ -509,37 +593,30 @@ func main() {
 		// init plex token in data store
 		if err := db.savePlexServer(server{}); err != nil {
 			fmt.Printf("failed initializing plex token: %v", err)
-			// shutdown <- true
 		}
 	} else if err != nil {
 		fmt.Printf("failed retrieving plex token from data store: %v\n", err)
-		// shutdown <- true
-		// return
 	}
 
-	plexConnection, err := plex.New(plexServer.URL, plexToken)
+	plexConn, err := plex.New(plexServerInfo.URL, plexToken)
 
 	if err != nil {
 		fmt.Printf("failed initializing plex connection: %v\n", err)
-		// shutdown <- true
-		// return
-	} else if err == nil {
-		// no error
-		if isVerbose {
-			fmt.Println("plex connection initialized")
-		}
-
+	} else if err == nil && isVerbose {
 		isPlexInitialized = true
-
-		isConnected, err := plexConnection.Test()
-
+		// no error
+		fmt.Println("plex connection initialized")
+		isConnected, err := plexConn.Test()
 		if err != nil {
 			fmt.Printf("testing plex connection failed: %v\n", err)
-			// shutdown <- true
-			// return
 		}
 
 		fmt.Println("can i connect to my plex server?", isConnected)
+	}
+
+	plexConnection := &plexServer{
+		plexConn,
+		sync.Mutex{},
 	}
 
 	router := mux.NewRouter()
@@ -552,7 +629,9 @@ func main() {
 
 	// router.HandleFunc("/webhook", wh.Handler)
 
-	// apiRouter := router.PathPrefix("/api").Subrouter()
+	apiRouter := router.PathPrefix("/api").Subrouter()
+
+	apiRouter.HandleFunc("/plex/server", ConfigurePlexServer(db, plexConnection)).Methods("POST", "PUT", "DELETE")
 
 	// // add new restricted user
 	// apiRouter.HandleFunc("/users/add", AddUser(db, plexConnection)).Methods("POST")
@@ -560,10 +639,10 @@ func main() {
 	// // list restricted users
 	// apiRouter.HandleFunc("/users", GetAllUsers(db)).Methods("GET")
 
-	// // search media on plex
-	// apiRouter.HandleFunc("/search", SearchPlex(plexConnection)).Methods("GET")
+	// search media on plex
+	apiRouter.HandleFunc("/search", SearchPlex(plexConnection)).Methods("GET")
 
-	// // get plex friends
+	// get plex friends
 	// apiRouter.HandleFunc("/friends", GetPlexFriends(plexConnection)).Methods("GET")
 
 	// // get child data from plex

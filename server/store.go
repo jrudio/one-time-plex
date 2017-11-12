@@ -37,7 +37,7 @@ func initDataStore(dirName string) (store, error) {
 			return db, err
 		}
 	} else if !os.IsNotExist(err) && isVerbose {
-		fmt.Println("datastore already exits")
+		fmt.Println("datastore exists")
 	}
 
 	options := badger.DefaultOptions
