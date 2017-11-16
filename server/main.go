@@ -14,9 +14,9 @@ import (
 
 	"github.com/dgraph-io/badger"
 
-	"github.com/asdine/storm"
 	"github.com/gorilla/mux"
 	"github.com/jrudio/go-plex-client"
+	"github.com/jrudio/one-time-plex/server/datastore"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
@@ -89,23 +89,6 @@ func (c clientResponse) Write(w http.ResponseWriter, errCode int) error {
 	return err
 }
 
-type server struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
-}
-
-func (s server) Serialize() ([]byte, error) {
-	return json.Marshal(s)
-}
-
-func unserializeServer(serializedServer []byte) (server, error) {
-	var s server
-
-	err := json.Unmarshal(serializedServer, &s)
-
-	return s, err
-}
-
 // plexServer is a wrapper around plex.Plex to make setting the url and token safe for conccurent use
 type plexServer struct {
 	*plex.Plex
@@ -131,178 +114,253 @@ func (p *plexServer) getURL() string {
 }
 
 // OnPlay reads and reacts to the webhook sent from Plex
-func OnPlay(db *storm.DB, plexConnection *plex.Plex) func(wh plex.Webhook) {
+func OnPlay(db datastore.Store, plexConnection *plexServer) func(wh plex.Webhook) {
 	return func(wh plex.Webhook) {
 		userID := strconv.Itoa(wh.Account.ID)
 		username := wh.Account.Title
+		showTitle := wh.Metadata.GrandparentTitle
 		title := wh.Metadata.Title
 		mediaID := wh.Metadata.RatingKey
+
+		if showTitle != "" {
+			title = showTitle + ": " + title
+		}
 
 		fmt.Printf("%s (%s) has started playing %s (%s)\n", username, userID, title, mediaID)
 
 		// is this a user we need to check?
-		var user restrictedUser
+		// var user restrictedUser
 
-		if err := db.One("PlexUserID", userID, &user); err != nil {
-			// user not in database so we don't care about them
-			fmt.Printf("user %s (%s) is not in database\n", username, userID)
-			return
-		}
+		// if err := db.One("PlexUserID", userID, &user); err != nil {
+		// 	// user not in database so we don't care about them
+		// 	fmt.Printf("user %s (%s) is not in database\n", username, userID)
+		// 	return
+		// }
 
-		if user.AssignedMediaID == mediaID {
-			// user is watching what they were assigned
-			fmt.Printf("user %s (%s) is watching %s which is ok\n", username, userID, mediaID)
-			return
-		}
+		// if user.AssignedMediaID == mediaID {
+		// 	// user is watching what they were assigned
+		// 	fmt.Printf("user %s (%s) is watching %s which is ok\n", username, userID, mediaID)
+		// 	return
+		// }
 
-		// Obtain session id
-		//
-		// We will assume the plexConnection is the server that sent this webhook
-		sessions, err := plexConnection.GetSessions()
+		// // Obtain session id
+		// //
+		// // We will assume the plexConnection is the server that sent this webhook
+		// sessions, err := plexConnection.GetSessions()
 
-		if err != nil {
-			fmt.Printf("not terminating user: %s (%s) \n\tfailed to grab sessions from plex server: %v\n", username, userID, err)
-			return
-		}
+		// if err != nil {
+		// 	fmt.Printf("not terminating user: %s (%s) \n\tfailed to grab sessions from plex server: %v\n", username, userID, err)
+		// 	return
+		// }
 
-		var sessionID string
+		// var sessionID string
 
-		for _, session := range sessions.MediaContainer.Video {
-			if session.User.ID != userID {
-				continue
-			}
+		// for _, session := range sessions.MediaContainer.Video {
+		// 	if session.User.ID != userID {
+		// 		continue
+		// 	}
 
-			sessionID = session.Session.ID
-			break
-		}
+		// 	sessionID = session.Session.ID
+		// 	break
+		// }
 
-		// kill session
-		fmt.Printf("Terminating %s (%s)'s session as they are not supposed to be watching %s (%s)\n", username, userID, title, mediaID)
-		plexConnection.TerminateSession(sessionID, "One Time Plex: You are not allowed to watch that")
+		// // kill session
+		// fmt.Printf("Terminating %s (%s)'s session as they are not supposed to be watching %s (%s)\n", username, userID, title, mediaID)
+		// plexConnection.TerminateSession(sessionID, "One Time Plex: You are not allowed to watch that")
 		// fmt.Printf("%d is now playing: %s (%s)\n", userID, title, mediaID)
 	}
 }
 
 // OnStop will stop monitoring the user and unshare the Plex library
-func OnStop(db *storm.DB, plexConnection *plex.Plex) func(wh plex.Webhook) {
+func OnStop(db datastore.Store, plexConnection *plexServer) func(wh plex.Webhook) {
 	return func(wh plex.Webhook) {
 		// remove from our database
 		username := wh.Account.Title
 		userID := wh.Account.ID
+		showTitle := wh.Metadata.GrandparentTitle
+		title := wh.Metadata.Title
 
-		var user restrictedUser
-
-		if err := db.One("PlexUserID", userID, &user); err != nil {
-			// user not in database, don't care
-			fmt.Printf("user %s (%d) is not in database\n", username, userID)
-			return
+		if showTitle != "" {
+			title = showTitle + ": " + title
 		}
 
-		if err := db.DeleteStruct(&user); err != nil {
-			fmt.Printf("user %s (%d) removal failed\n", username, userID)
-			return
+		// var user restrictedUser
+
+		// if err := db.One("PlexUserID", userID, &user); err != nil {
+		// 	// user not in database, don't care
+		// 	fmt.Printf("user %s (%d) is not in database\n", username, userID)
+		// 	return
+		// }
+
+		// if err := db.DeleteStruct(&user); err != nil {
+		// 	fmt.Printf("user %s (%d) removal failed\n", username, userID)
+		// 	return
+		// }
+
+		// // unshare the Plex library
+		// _, err := plexConnection.RemoveFriend(strconv.Itoa(userID))
+
+		// if err != nil {
+		// 	fmt.Printf("failed to unshare library with %s (%d)\n\tplease remove them manually\n", username, userID)
+		// 	return
+		// }
+
+		fmt.Printf("%s (%d) stopped viewing: %s\n", username, userID, title)
+	}
+}
+
+// OnPause ...
+func OnPause(db datastore.Store, plexConnection *plexServer) func(wh plex.Webhook) {
+	return func(wh plex.Webhook) {
+		mediaType := wh.Metadata.MediaType
+
+		username := wh.Account.Title
+		showTitle := wh.Metadata.GrandparentTitle
+		title := wh.Metadata.Title
+
+		if showTitle != "" {
+			title = showTitle + ": " + title
 		}
 
-		// unshare the Plex library
-		_, err := plexConnection.RemoveFriend(strconv.Itoa(userID))
+		fmt.Printf("%s paused %s (%s)\n", username, title, mediaType)
+	}
+}
 
-		if err != nil {
-			fmt.Printf("failed to unshare library with %s (%d)\n\tplease remove them manually\n", username, userID)
-			return
+// OnResume ...
+func OnResume(db datastore.Store, plexConnection *plexServer) func(wh plex.Webhook) {
+	return func(wh plex.Webhook) {
+		mediaType := wh.Metadata.MediaType
+
+		username := wh.Account.Title
+		showTitle := wh.Metadata.GrandparentTitle
+		title := wh.Metadata.Title
+
+		if showTitle != "" {
+			title = showTitle + ": " + title
 		}
 
-		fmt.Printf("%s (%d) has finished viewing: %s", username, userID, wh.Metadata.Title)
+		fmt.Printf("%s resumed %s (%s)\n", username, title, mediaType)
+	}
+}
+
+// OnScrobble tracks how much of a media a user has consumed
+func OnScrobble(db datastore.Store, plexConnection *plexServer) func(wh plex.Webhook) {
+	return func(wh plex.Webhook) {
+		mediaType := wh.Metadata.MediaType
+
+		username := wh.Account.Title
+		showTitle := wh.Metadata.GrandparentTitle
+		title := wh.Metadata.Title
+
+		if showTitle != "" {
+			title = showTitle + ": " + title
+		}
+
+		fmt.Printf("%s scrobbled %s (%s)\n", username, title, mediaType)
 	}
 }
 
 // AddUser adds a user that needs to be monitored
-// func AddUser(db *storm.DB, plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		var user restrictedUser
-// 		var resp clientResponse
+func AddUser(db datastore.Store, plexConnection *plexServer) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var user datastore.User
+		var resp clientResponse
 
-// 		// check for required parameters
-// 		defer r.Body.Close()
+		// check for required parameters
+		if err := r.ParseForm(); err != nil {
+			resp.Err = "failed to parse form"
+			resp.Write(w, http.StatusBadRequest)
+			return
+		}
 
-// 		if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-// 			resp.Err = fmt.Sprintf("failed to decode json body: %v", err)
-// 			resp.Write(w)
-// 			return
-// 		}
+		plexUserID := r.FormValue("plexUserID")
+		mediaID := r.FormValue("mediaID")
 
-// 		if user.PlexUserID == "" || user.AssignedMediaID == "" {
-// 			resp.Err = "missing 'plexuserid' and/or 'mediaID' in the post form body"
-// 			resp.Write(w)
-// 			return
-// 		}
+		user.PlexUserID = plexUserID
+		user.MediaID = mediaID
 
-// 		user.ID = xid.New().String()
-// 		// user.Name = plexUsername
-// 		// user.PlexUserID = plexUserID
-// 		// user.AssignedMediaID = mediaID
+		// defer r.Body.Close()
 
-// 		metadata, err := plexConnection.GetMetadata(user.AssignedMediaID)
+		// if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+		// 	resp.Err = fmt.Sprintf("failed to decode json body: %v", err)
+		// 	resp.Write(w, http.StatusBadRequest)
+		// 	return
+		// }
 
-// 		if err != nil {
-// 			resp.Err = fmt.Sprintf("failed to fetch title for media id %s: %v", user.AssignedMediaID, err)
-// 			resp.Write(w)
-// 			return
-// 		}
+		if user.PlexUserID == "" || user.MediaID == "" {
+			resp.Err = "missing 'plexuserid' and/or 'mediaID' in the post form body"
+			resp.Write(w, http.StatusBadRequest)
+			return
+		}
 
-// 		metadataLen, err := strconv.Atoi(metadata.Size)
+		// 		user.ID = xid.New().String()
+		// 		// user.Name = plexUsername
+		// 		// user.PlexUserID = plexUserID
+		// 		// user.AssignedMediaID = mediaID
 
-// 		if err != nil {
-// 			resp.Err = fmt.Sprintf("(%s) failed to convert metadata length to int: %v", user.AssignedMediaID, err)
-// 			resp.Write(w)
-// 			return
-// 		}
+		// 		metadata, err := plexConnection.GetMetadata(user.AssignedMediaID)
 
-// 		if metadataLen > 0 {
-// 			data := metadata.Metadata[0]
+		// 		if err != nil {
+		// 			resp.Err = fmt.Sprintf("failed to fetch title for media id %s: %v", user.AssignedMediaID, err)
+		// 			resp.Write(w)
+		// 			return
+		// 		}
 
-// 			var title string
+		// 		metadataLen, err := strconv.Atoi(metadata.Size)
 
-// 			// combine show name, season, and episode name if type == episode
-// 			if data.Type == "episode" {
-// 				title = data.GrandparentTitle + ": " + data.ParentTitle + " - " + data.Title
-// 			} else {
-// 				// type is movie just need the title
-// 				title = metadata.MediaContainer.Metadata[0].Title
-// 			}
+		// 		if err != nil {
+		// 			resp.Err = fmt.Sprintf("(%s) failed to convert metadata length to int: %v", user.AssignedMediaID, err)
+		// 			resp.Write(w)
+		// 			return
+		// 		}
 
-// 			user.Title = title
-// 		}
+		// 		if metadataLen > 0 {
+		// 			data := metadata.Metadata[0]
 
-// 		if err := db.Save(&user); err != nil {
-// 			resp.Err = fmt.Sprintf("failed to save user: %v\n", err)
-// 			resp.Write(w)
-// 			return
-// 		}
+		// 			var title string
 
-// 		resp.Result = user
+		// 			// combine show name, season, and episode name if type == episode
+		// 			if data.Type == "episode" {
+		// 				title = data.GrandparentTitle + ": " + data.ParentTitle + " - " + data.Title
+		// 			} else {
+		// 				// type is movie just need the title
+		// 				title = metadata.MediaContainer.Metadata[0].Title
+		// 			}
 
-// 		resp.Write(w)
-// 	}
-// }
+		// 			user.Title = title
+		// 		}
+
+		if err := db.SaveUser(user); err != nil {
+			resp.Err = fmt.Sprintf("failed to save user: %v\n", err)
+			resp.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		resp.Result = user
+
+		resp.Write(w, http.StatusOK)
+	}
+}
 
 // GetAllUsers returns all monitored users
-// func GetAllUsers(db *storm.DB) func(w http.ResponseWriter, r *http.Request) {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		w.Header().Set("Content-Type", "application/json")
+func GetAllUsers(db datastore.Store) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 
-// 		var users []restrictedUser
-// 		var resp clientResponse
+		var resp clientResponse
 
-// 		if err := db.All(&users); err != nil {
-// 			resp.Err = fmt.Sprintf("failed to retrieve users: %v\n", err)
-// 			resp.Write(w)
-// 			return
-// 		}
+		users, err := db.GetAllUsers()
 
-// 		resp.Result = users
-// 		resp.Write(w)
-// 	}
-// }
+		if err != nil {
+			resp.Err = fmt.Sprintf("failed to retrieve users: %v\n", err)
+			resp.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		resp.Result = users
+		resp.Write(w, http.StatusOK)
+	}
+}
 
 func filterSearchResults(results plex.SearchResults) []plexSearchResults {
 	var newResults []plexSearchResults
@@ -433,7 +491,7 @@ func SearchPlex(plexConnection *plexServer) func(w http.ResponseWriter, r *http.
 // 	}
 // }
 
-func cleanup(ctrlC chan os.Signal, shutdown chan bool, db store) {
+func cleanup(ctrlC chan os.Signal, shutdown chan bool, db datastore.Store) {
 	for {
 		select {
 		case <-ctrlC:
@@ -457,7 +515,7 @@ func cleanup(ctrlC chan os.Signal, shutdown chan bool, db store) {
 }
 
 // ConfigurePlexServer retrieve, add, edit, and delete plex server from one time plex
-func ConfigurePlexServer(db store, plexConnection *plexServer) func(w http.ResponseWriter, r *http.Request) {
+func ConfigurePlexServer(db datastore.Store, plexConnection *plexServer) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		var resp clientResponse
@@ -484,7 +542,7 @@ func ConfigurePlexServer(db store, plexConnection *plexServer) func(w http.Respo
 			if plexURL := r.FormValue("url"); plexURL != "" {
 				plexConnection.setURL(plexURL)
 
-				if err := db.savePlexServer(server{
+				if err := db.SavePlexServer(datastore.Server{
 					Name: "default",
 					URL:  plexURL,
 				}); err != nil {
@@ -494,7 +552,7 @@ func ConfigurePlexServer(db store, plexConnection *plexServer) func(w http.Respo
 			if plexToken := r.FormValue("token"); plexToken != "" {
 				plexConnection.setToken(plexToken)
 
-				if err := db.savePlexToken(plexToken); err != nil {
+				if err := db.SavePlexToken(plexToken); err != nil {
 					fmt.Printf("saving plex token failed: %v", err)
 				}
 			}
@@ -539,7 +597,7 @@ func main() {
 	storeDirectory = filepath.Join(storeDirectory, ".one-time-plex")
 
 	// connect to datastore
-	db, err := initDataStore(storeDirectory)
+	db, err := datastore.InitDataStore(storeDirectory, isVerbose)
 
 	// handle interrupts - i.e. control-c
 	go cleanup(ctrlC, shutdown, db)
@@ -552,23 +610,23 @@ func main() {
 	// check if app secret exists in datastore
 	appSecret := []byte("iAmAseCReTuSEdTOENcrYp")
 
-	if secret := db.getSecret(); len(secret) != 0 {
-		db.secret = secret
+	if secret := db.GetSecret(); len(secret) != 0 {
+		db.Secret = secret
 	} else {
 		// if not, create new appsecret and save
 		// append a random number to make appsecret unique
 		appSecret = append(appSecret, []byte(strconv.FormatInt(time.Now().Unix(), 10))...)
 
-		if err := db.saveSecret(appSecret); err != nil {
+		if err := db.SaveSecret(appSecret); err != nil {
 			fmt.Printf("failed to save app secret: %v\n", err)
 			shutdown <- true
 		}
 
-		db.secret = appSecret
+		db.Secret = appSecret
 	}
 
 	// init plex stuff
-	plexServerInfo, err := db.getPlexServer()
+	plexServerInfo, err := db.GetPlexServer()
 
 	if isVerbose && err != nil {
 		fmt.Println("plex server:", err.Error())
@@ -576,14 +634,14 @@ func main() {
 
 	if err != nil && err == badger.ErrKeyNotFound || err == badger.ErrEmptyKey {
 		// init plex server in datastore
-		if err := db.savePlexServer(server{}); err != nil {
+		if err := db.SavePlexServer(datastore.Server{}); err != nil {
 			fmt.Printf("failed initializing plex server: %v", err)
 		}
 	} else if err != nil {
 		fmt.Printf("failed retrieving plex server from data store: %v\n", err)
 	}
 
-	plexToken, err := db.getPlexToken()
+	plexToken, err := db.GetPlexToken()
 
 	if isVerbose && err != nil {
 		fmt.Println("plex token error:", err.Error())
@@ -591,7 +649,7 @@ func main() {
 
 	if err != nil && err == badger.ErrKeyNotFound || err == badger.ErrEmptyKey {
 		// init plex token in data store
-		if err := db.savePlexServer(server{}); err != nil {
+		if err := db.SavePlexServer(datastore.Server{}); err != nil {
 			fmt.Printf("failed initializing plex token: %v", err)
 		}
 	} else if err != nil {
@@ -621,23 +679,26 @@ func main() {
 
 	router := mux.NewRouter()
 
-	// wh := plex.NewWebhook()
+	wh := plex.NewWebhook()
 
-	// wh.OnPlay(OnPlay(db, plexConnection))
+	wh.OnPlay(OnPlay(db, plexConnection))
 
-	// wh.OnStop(OnStop(db, plexConnection))
+	wh.OnStop(OnStop(db, plexConnection))
+	wh.OnPause(OnPause(db, plexConnection))
+	wh.OnResume(OnResume(db, plexConnection))
+	wh.OnScrobble(OnScrobble(db, plexConnection))
 
-	// router.HandleFunc("/webhook", wh.Handler)
+	router.HandleFunc("/webhook", wh.Handler)
 
 	apiRouter := router.PathPrefix("/api").Subrouter()
 
 	apiRouter.HandleFunc("/plex/server", ConfigurePlexServer(db, plexConnection)).Methods("POST", "PUT", "DELETE")
 
-	// // add new restricted user
-	// apiRouter.HandleFunc("/users/add", AddUser(db, plexConnection)).Methods("POST")
+	// add new restricted user
+	apiRouter.HandleFunc("/users/add", AddUser(db, plexConnection)).Methods("POST")
 
-	// // list restricted users
-	// apiRouter.HandleFunc("/users", GetAllUsers(db)).Methods("GET")
+	// list restricted users
+	apiRouter.HandleFunc("/users", GetAllUsers(db)).Methods("GET")
 
 	// search media on plex
 	apiRouter.HandleFunc("/search", SearchPlex(plexConnection)).Methods("GET")

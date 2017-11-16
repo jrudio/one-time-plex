@@ -1,6 +1,6 @@
 // Credit for this encryption helper goes to stupidbodo and their gist: https://gist.github.com/stupidbodo/601b68bfef3449d1b8d9
 
-package main
+package datastore
 
 import (
 	"bytes"
