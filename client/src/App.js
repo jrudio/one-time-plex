@@ -7,7 +7,8 @@ import { Grid, Cell } from 'react-mdl'
 import './App.css'
 
 window.otp = {
-  url: 'http://localhost:8080/api'
+  url: '//localhost:6969/api'
+  // url: 'http://localhost:6969/api'
 }
 
 class App extends Component {
