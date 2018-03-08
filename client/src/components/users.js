@@ -18,13 +18,22 @@ class Users extends Component {
         if (!users) {
             return <div></div>
         }
+        
+        return <div>{(() => {
+            let userBoxes = []
+            
+            for (const key of Object.keys(users)) {
+                userBoxes.push(<p key={key} data-user-id={users[key].plexUserID}>{users[key].plexUserID} - <i>{users[key].title}</i> {'(' + users[key].mediaID + ')'} </p>)
+            }
 
-        return <div>{this.props.users.map((user, i) => <p key={i}>{user.plexUsername} - <i>{user.title}</i> {'(' + user.assignedMediaID + ')'} </p>)}</div>
+            return userBoxes
+        })()}
+        </div>
     }
 }
 
 Users.propTypes = {
-    users: Proptypes.array.isRequired,
+    users: Proptypes.object.isRequired,
     addUser: Proptypes.func.isRequired
 }
 

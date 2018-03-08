@@ -34,6 +34,13 @@ type plexSearchResults struct {
 	MediaType string `json:"type"`
 }
 
+type plexMetadataChildren struct {
+	Title     string `json:"title"`
+	Year      string `json:"year"`
+	MediaID   string `json:"mediaID"`
+	MediaType string `json:"type"`
+}
+
 type plexFriend struct {
 	ID              string `json:"id"`
 	Username        string `json:"username"`
@@ -113,151 +120,14 @@ func (p *plexServer) getURL() string {
 	return p.URL
 }
 
-// OnPlay reads and reacts to the webhook sent from Plex
-func OnPlay(db datastore.Store, plexConnection *plexServer) func(wh plex.Webhook) {
-	return func(wh plex.Webhook) {
-		userID := strconv.Itoa(wh.Account.ID)
-		username := wh.Account.Title
-		showTitle := wh.Metadata.GrandparentTitle
-		title := wh.Metadata.Title
-		mediaID := wh.Metadata.RatingKey
-
-		if showTitle != "" {
-			title = showTitle + ": " + title
-		}
-
-		fmt.Printf("%s (%s) has started playing %s (%s)\n", username, userID, title, mediaID)
-
-		// is this a user we need to check?
-		// var user restrictedUser
-
-		// if err := db.One("PlexUserID", userID, &user); err != nil {
-		// 	// user not in database so we don't care about them
-		// 	fmt.Printf("user %s (%s) is not in database\n", username, userID)
-		// 	return
-		// }
-
-		// if user.AssignedMediaID == mediaID {
-		// 	// user is watching what they were assigned
-		// 	fmt.Printf("user %s (%s) is watching %s which is ok\n", username, userID, mediaID)
-		// 	return
-		// }
-
-		// // Obtain session id
-		// //
-		// // We will assume the plexConnection is the server that sent this webhook
-		// sessions, err := plexConnection.GetSessions()
-
-		// if err != nil {
-		// 	fmt.Printf("not terminating user: %s (%s) \n\tfailed to grab sessions from plex server: %v\n", username, userID, err)
-		// 	return
-		// }
-
-		// var sessionID string
-
-		// for _, session := range sessions.MediaContainer.Video {
-		// 	if session.User.ID != userID {
-		// 		continue
-		// 	}
-
-		// 	sessionID = session.Session.ID
-		// 	break
-		// }
-
-		// // kill session
-		// fmt.Printf("Terminating %s (%s)'s session as they are not supposed to be watching %s (%s)\n", username, userID, title, mediaID)
-		// plexConnection.TerminateSession(sessionID, "One Time Plex: You are not allowed to watch that")
-		// fmt.Printf("%d is now playing: %s (%s)\n", userID, title, mediaID)
-	}
-}
-
-// OnStop will stop monitoring the user and unshare the Plex library
-func OnStop(db datastore.Store, plexConnection *plexServer) func(wh plex.Webhook) {
-	return func(wh plex.Webhook) {
-		// remove from our database
-		username := wh.Account.Title
-		userID := wh.Account.ID
-		showTitle := wh.Metadata.GrandparentTitle
-		title := wh.Metadata.Title
-
-		if showTitle != "" {
-			title = showTitle + ": " + title
-		}
-
-		// var user restrictedUser
-
-		// if err := db.One("PlexUserID", userID, &user); err != nil {
-		// 	// user not in database, don't care
-		// 	fmt.Printf("user %s (%d) is not in database\n", username, userID)
-		// 	return
-		// }
-
-		// if err := db.DeleteStruct(&user); err != nil {
-		// 	fmt.Printf("user %s (%d) removal failed\n", username, userID)
-		// 	return
-		// }
-
-		// // unshare the Plex library
-		// _, err := plexConnection.RemoveFriend(strconv.Itoa(userID))
-
-		// if err != nil {
-		// 	fmt.Printf("failed to unshare library with %s (%d)\n\tplease remove them manually\n", username, userID)
-		// 	return
-		// }
-
-		fmt.Printf("%s (%d) stopped viewing: %s\n", username, userID, title)
-	}
-}
-
-// OnPause ...
-func OnPause(db datastore.Store, plexConnection *plexServer) func(wh plex.Webhook) {
-	return func(wh plex.Webhook) {
-		mediaType := wh.Metadata.MediaType
-
-		username := wh.Account.Title
-		showTitle := wh.Metadata.GrandparentTitle
-		title := wh.Metadata.Title
-
-		if showTitle != "" {
-			title = showTitle + ": " + title
-		}
-
-		fmt.Printf("%s paused %s (%s)\n", username, title, mediaType)
-	}
-}
-
-// OnResume ...
-func OnResume(db datastore.Store, plexConnection *plexServer) func(wh plex.Webhook) {
-	return func(wh plex.Webhook) {
-		mediaType := wh.Metadata.MediaType
-
-		username := wh.Account.Title
-		showTitle := wh.Metadata.GrandparentTitle
-		title := wh.Metadata.Title
-
-		if showTitle != "" {
-			title = showTitle + ": " + title
-		}
-
-		fmt.Printf("%s resumed %s (%s)\n", username, title, mediaType)
-	}
-}
-
-// OnScrobble tracks how much of a media a user has consumed
-func OnScrobble(db datastore.Store, plexConnection *plexServer) func(wh plex.Webhook) {
-	return func(wh plex.Webhook) {
-		mediaType := wh.Metadata.MediaType
-
-		username := wh.Account.Title
-		showTitle := wh.Metadata.GrandparentTitle
-		title := wh.Metadata.Title
-
-		if showTitle != "" {
-			title = showTitle + ": " + title
-		}
-
-		fmt.Printf("%s scrobbled %s (%s)\n", username, title, mediaType)
-	}
+type plexUserNotification struct {
+	// ratingKey aka media id
+	ratingKey   string
+	currentTime int64
+	userID      string
+	sessionID   string
+	clientID    string
+	playerType  string
 }
 
 // AddUser adds a user that needs to be monitored
@@ -362,6 +232,70 @@ func GetAllUsers(db datastore.Store) func(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// GetMetadataFromPlex fetches the metadata of plex media
+func GetMetadataFromPlex(plexConnection *plexServer) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := clientResponse{}
+
+		query := r.URL.Query()
+
+		mediaID := query.Get("mediaid")
+
+		if mediaID == "" {
+			response.Err = "mediaid required"
+			response.Write(w, http.StatusBadRequest)
+			return
+		}
+
+		metadata, err := plexConnection.GetMetadataChildren(mediaID)
+
+		if err != nil {
+			response.Err = fmt.Sprintf("failed plexMetadataChildrento fetch metadata for %s: %v", mediaID, err)
+			response.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		response.Result = filterMetadata(metadata)
+		response.Write(w, http.StatusOK)
+	}
+}
+
+func filterMetadata(results plex.MetadataChildren) []plexMetadataChildren {
+	resultsLen := len(results.MediaContainer.Metadata)
+	filteredMetadata := make([]plexMetadataChildren, resultsLen)
+
+	for i := 0; i < resultsLen; i++ {
+		metadata := results.MediaContainer.Metadata[i]
+
+		filteredMetadata[i] = plexMetadataChildren{
+			Title:     metadata.Title,
+			Year:      "N/A",
+			MediaID:   metadata.Key,
+			MediaType: metadata.Type,
+		}
+	}
+
+	return filteredMetadata
+}
+
+// GetPlexFriends fetches plex friends associated with the set plex token
+func GetPlexFriends(plexConnection *plexServer) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := clientResponse{}
+
+		friends, err := plexConnection.GetFriends()
+
+		if err != nil {
+			response.Err = fmt.Sprintf("failed to fetch plex friends: %v", err)
+			response.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		response.Result = friends
+		response.Write(w, http.StatusOK)
+	}
+}
+
 func filterSearchResults(results plex.SearchResults) []plexSearchResults {
 	var newResults []plexSearchResults
 
@@ -417,79 +351,6 @@ func SearchPlex(plexConnection *plexServer) func(w http.ResponseWriter, r *http.
 		resp.Write(w, http.StatusOK)
 	}
 }
-
-// // GetPlexFriends will return an array of usernames and ids that are friends with associated plex token
-// func GetPlexFriends(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		var resp clientResponse
-
-// 		friends, err := plexConnection.GetFriends()
-
-// 		if err != nil {
-// 			resp.Err = fmt.Sprintf("failed to fetch friends from plex: %v", err)
-// 			resp.Write(w)
-// 			return
-// 		}
-
-// 		var friendsFiltered []plexFriend
-
-// 		for _, friend := range friends {
-// 			filteredFriend := plexFriend{
-// 				ID:              strconv.Itoa(friend.ID),
-// 				Username:        friend.Username,
-// 				ServerID:        friend.Server.ID,
-// 				ServerMachineID: friend.Server.MachineIdentifier,
-// 				ServerName:      friend.Server.Name,
-// 			}
-
-// 			friendsFiltered = append(friendsFiltered, filteredFriend)
-// 		}
-
-// 		resp.Result = friendsFiltered
-// 		resp.Write(w)
-// 	}
-// }
-
-// // GetMetadataFromPlex fetches metadata of media from plex
-// func GetMetadataFromPlex(plexConnection *plex.Plex) func(w http.ResponseWriter, r *http.Request) {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		var resp clientResponse
-
-// 		mediaID := r.URL.Query().Get("mediaid")
-
-// 		if mediaID == "" {
-// 			resp.Err = "missing id from query: 'mediaID'"
-// 			w.WriteHeader(http.StatusBadRequest)
-// 			resp.Write(w)
-// 			return
-// 		}
-
-// 		metadata, err := plexConnection.GetMetadataChildren(mediaID)
-
-// 		if err != nil {
-// 			resp.Err = fmt.Sprintf("failed to grab metadata from plex: %v", err)
-// 			w.WriteHeader(http.StatusInternalServerError)
-// 			resp.Write(w)
-// 			return
-// 		}
-
-// 		var results []plexSearchResults
-
-// 		for _, child := range metadata.MediaContainer.Metadata {
-// 			newResult := plexSearchResults{
-// 				Title:     child.ParentTitle + " - " + child.Title,
-// 				MediaID:   child.RatingKey,
-// 				MediaType: child.Type,
-// 			}
-
-// 			results = append(results, newResult)
-// 		}
-
-// 		resp.Result = results
-
-// 		resp.Write(w)
-// 	}
-// }
 
 func cleanup(ctrlC chan os.Signal, shutdown chan bool, db datastore.Store) {
 	for {
@@ -573,6 +434,9 @@ func main() {
 	// grab optional params
 	listenOnAddress := flag.String("host", ":6969", "where the server should listen on. Default is localhost:6969")
 	isVerboseFlag := flag.Bool("verbose", false, "spit out more information")
+	hasPlexPass := flag.Bool("plexpass", false, "utilize plex pass features")
+
+	removeLockFile := flag.Bool("unlock", false, "remove the lock file - Do this if one time plex crashes and you cannot start again")
 
 	flag.Parse()
 
@@ -596,6 +460,19 @@ func main() {
 
 	storeDirectory = filepath.Join(storeDirectory, ".one-time-plex")
 
+	// 'unlock' flag was used
+	if *removeLockFile {
+		lockFile := filepath.Join(storeDirectory, "LOCK")
+
+		if err := os.Remove(lockFile); err != nil {
+			fmt.Printf("failed to remove lock file: %v\n", err)
+		} else {
+			fmt.Println("removed lock file")
+		}
+
+		os.Exit(1)
+	}
+
 	// connect to datastore
 	db, err := datastore.InitDataStore(storeDirectory, isVerbose)
 
@@ -605,6 +482,7 @@ func main() {
 	if err != nil {
 		fmt.Printf("failed to open or create the datastore: %v\n", err)
 		shutdown <- true
+		return
 	}
 
 	// check if app secret exists in datastore
@@ -620,6 +498,7 @@ func main() {
 		if err := db.SaveSecret(appSecret); err != nil {
 			fmt.Printf("failed to save app secret: %v\n", err)
 			shutdown <- true
+			return
 		}
 
 		db.Secret = appSecret
@@ -663,8 +542,11 @@ func main() {
 	} else if err == nil && isVerbose {
 		isPlexInitialized = true
 		// no error
+
 		fmt.Println("plex connection initialized")
+
 		isConnected, err := plexConn.Test()
+
 		if err != nil {
 			fmt.Printf("testing plex connection failed: %v\n", err)
 		}
@@ -679,35 +561,150 @@ func main() {
 
 	router := mux.NewRouter()
 
-	wh := plex.NewWebhook()
+	react := make(chan plexUserNotification)
 
-	wh.OnPlay(OnPlay(db, plexConnection))
+	events := plex.NewNotificationEvents()
 
-	wh.OnStop(OnStop(db, plexConnection))
-	wh.OnPause(OnPause(db, plexConnection))
-	wh.OnResume(OnResume(db, plexConnection))
-	wh.OnScrobble(OnScrobble(db, plexConnection))
+	// OnPlaying updates the datastore with user info and status when a plex user starts playing media
+	events.OnPlaying(func(n plex.NotificationContainer) {
+		currentTime := n.PlaySessionStateNotification[0].ViewOffset
+		mediaID := n.PlaySessionStateNotification[0].RatingKey
+		sessionID := n.PlaySessionStateNotification[0].SessionKey
+		clientID := ""
+		userID := "n/a"
+		username := "unknown"
+		playerType := ""
 
-	router.HandleFunc("/webhook", wh.Handler)
+		var duration int64
+
+		metadata, err := plexConnection.GetMetadata(mediaID)
+
+		if err != nil {
+			fmt.Printf("failed to get metadata for key %s: %v\n", mediaID, err)
+			return
+		}
+
+		duration = metadata.MediaContainer.Metadata[0].Duration
+		title := metadata.MediaContainer.Metadata[0].Title
+
+		currentTimeToSeconds := time.Duration(currentTime) * time.Millisecond
+		durationToSeconds := time.Duration(duration) * time.Millisecond
+
+		sessions, err := plexConnection.GetSessions()
+
+		if err != nil {
+			fmt.Printf("failed to fetch sessions on plex server: %v\n", err)
+			return
+		}
+
+		for _, session := range sessions.MediaContainer.Video {
+			if sessionID != session.SessionKey {
+				continue
+			}
+
+			userID = session.User.ID
+			username = session.User.Title
+			sessionID = session.Session.ID
+			clientID = session.Player.MachineIdentifier
+			playerType = session.Player.Product
+
+			break
+		}
+
+		fmt.Printf("%s is playing %s (%s)\n\t%v/%v\n", username, title, mediaID, currentTimeToSeconds, durationToSeconds)
+
+		react <- plexUserNotification{
+			ratingKey:   mediaID,
+			currentTime: currentTime,
+			userID:      userID,
+			sessionID:   sessionID,
+			clientID:    clientID,
+			playerType:  playerType,
+		}
+	})
+
+	// this anonymous goroutine reads from the datastore and ends plex streams that violate the terms set by one time plex
+	go func() {
+		if isVerbose {
+			fmt.Println("starting goroutine to listen for activity from plex users...")
+		}
+
+		for {
+			select {
+			case r := <-react:
+				fmt.Printf("user id: %s, rating key (media id): %s, and current time: %d\n", r.userID, r.ratingKey, r.currentTime)
+				userInStore, err := db.GetUser(r.userID)
+
+				if err != nil {
+					fmt.Printf("failed to retrieve user from datastore with id of %s\n", r.userID)
+					continue
+				}
+
+				// end stream
+				if userInStore.MediaID != r.ratingKey {
+					fmt.Printf("\t%s (%s) is not allowed to watch %s\n\tattempting to terminate stream...\n", userInStore.Name, userInStore.PlexUserID, r.ratingKey)
+
+					if *hasPlexPass {
+						// plex pass - will stop playback on whatever player the user is using
+						if err := plexConnection.TerminateSession(r.sessionID, "You are not allowed to watch this"); err != nil {
+							fmt.Printf("failed to terminate session id %s: %v\n", r.sessionID, err)
+						}
+					} else {
+						fmt.Println("\tclient id:", r.clientID)
+
+						// we cannot use StopPlayback if the user is watching via web browser
+						// so we must remove their access to our library
+						if r.playerType == "Plex Web" {
+							fmt.Println("\tuser is watching via web player -- we must remove their access to library")
+							// plexConnection.RemoveFriendAccessToLibrary()
+							continue
+						}
+
+						// non-plex pass - we can only prevent the user from downloading more data from server
+						if plexConnection.StopPlayback(r.clientID); err != nil {
+							fmt.Printf("failed to stop playback for user %s (%s), session %s\n", userInStore.Name, r.userID, r.sessionID)
+						}
+					}
+
+				}
+			}
+		}
+	}()
+
+	if isVerbose {
+		fmt.Println("subscribing to plex server notifications...")
+	}
+
+	plexConnection.SubscribeToNotifications(events, ctrlC, func(err error) {
+		fmt.Printf("failed to subscribe to server: %v\n", err)
+		// shutdown <- true
+		// return
+	})
+
+	fmt.Println("connected to plex server via websocket\nlistening for events...")
+
+	if isVerbose {
+		fmt.Println("after subscribing")
+	}
 
 	apiRouter := router.PathPrefix("/api").Subrouter()
 
 	apiRouter.HandleFunc("/plex/server", ConfigurePlexServer(db, plexConnection)).Methods("POST", "PUT", "DELETE")
 
-	// add new restricted user
+	// add new one-time user
 	apiRouter.HandleFunc("/users/add", AddUser(db, plexConnection)).Methods("POST")
 
-	// list restricted users
+	// list one-time users
 	apiRouter.HandleFunc("/users", GetAllUsers(db)).Methods("GET")
 
 	// search media on plex
 	apiRouter.HandleFunc("/search", SearchPlex(plexConnection)).Methods("GET")
 
 	// get plex friends
-	// apiRouter.HandleFunc("/friends", GetPlexFriends(plexConnection)).Methods("GET")
+	apiRouter.HandleFunc("/friends", GetPlexFriends(plexConnection)).Methods("GET")
 
-	// // get child data from plex
-	// apiRouter.HandleFunc("/metadata", GetMetadataFromPlex(plexConnection)).Methods("GET")
+	// get child data from plex
+	apiRouter.HandleFunc("/metadata", GetMetadataFromPlex(plexConnection)).Methods("GET")
 
 	// fmt.Printf("serving one time plex on %s\n", config.Host)
 

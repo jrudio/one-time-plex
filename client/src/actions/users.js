@@ -95,16 +95,17 @@ export const getMonitoredUsers = () => {
         return fetch(window.otp.url + '/users')
             .then(r => r.json())
             .then(r => {
-                console.log(r)
-                
+                // console.log(r)
+
                 return dispatch(monitoredUsersFetched(r.result))
             })
-            .catch(e => {
-                dispatch(monitoredUsersFetched())
+            // .catch(e => {
+                // console.log(e)
+                // dispatch(monitoredUsersFetched())
 
-                console.error(e.message)
+                // console.error(e.message)
                 // dispatch(fetchedErr(e.message))
-            })
+            // })
 
     }
 }
