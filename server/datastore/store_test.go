@@ -61,8 +61,11 @@ func TestPollUsers(t *testing.T) {
 		seedUsers[i] = User{
 			Name:       "test",
 			PlexUserID: "test-" + strconv.Itoa(i),
-			MediaID:    "abc123",
-			Title:      "fake title",
+			AssignedMedia: AssignedMedia{
+				ID:     "abc123",
+				Title:  "fake title",
+				Status: "not started",
+			},
 		}
 	}
 
@@ -102,8 +105,10 @@ func BenchmarkPollUsers(b *testing.B) {
 		seedUsers[i] = User{
 			Name:       "test",
 			PlexUserID: "bench-" + strconv.Itoa(i),
-			MediaID:    "abc123",
-			Title:      "fake title",
+			AssignedMedia: AssignedMedia{
+				ID:    "abc123",
+				Title: "fake title",
+			},
 		}
 	}
 

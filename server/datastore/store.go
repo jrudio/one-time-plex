@@ -29,10 +29,16 @@ type StoreKeys struct {
 
 // User a plex user that is attached to a media
 type User struct {
-	Name       string `json:"user"`
-	PlexUserID string `json:"plexUserID"`
-	MediaID    string `json:"mediaID"`
-	Title      string `json:"title"`
+	PlexUserID    string `json:"plexUserID"`
+	Name          string `json:"plexUsername"`
+	AssignedMedia `json:"assignedMedia"`
+}
+
+// AssignedMedia assigned media info such as: watch status, title, an key (plex media id)
+type AssignedMedia struct {
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Status string `json:"status"`
 }
 
 // Serialize converts user into json

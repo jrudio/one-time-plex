@@ -147,58 +147,83 @@ func AddUser(db datastore.Store, plexConnection *plexServer) func(w http.Respons
 		mediaID := r.FormValue("mediaID")
 
 		user.PlexUserID = plexUserID
-		user.MediaID = mediaID
+		user.AssignedMedia.ID = mediaID
+		user.AssignedMedia.Status = "not started"
 
-		// defer r.Body.Close()
-
-		// if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		// 	resp.Err = fmt.Sprintf("failed to decode json body: %v", err)
-		// 	resp.Write(w, http.StatusBadRequest)
-		// 	return
-		// }
-
-		if user.PlexUserID == "" || user.MediaID == "" {
+		if user.PlexUserID == "" || user.AssignedMedia.ID == "" {
 			resp.Err = "missing 'plexuserid' and/or 'mediaID' in the post form body"
 			resp.Write(w, http.StatusBadRequest)
 			return
 		}
 
-		// 		user.ID = xid.New().String()
-		// 		// user.Name = plexUsername
-		// 		// user.PlexUserID = plexUserID
-		// 		// user.AssignedMediaID = mediaID
+		metadata, err := plexConnection.GetMetadata(user.AssignedMedia.ID)
 
-		// 		metadata, err := plexConnection.GetMetadata(user.AssignedMediaID)
+		if err != nil {
+			resp.Err = fmt.Sprintf("failed to fetch title for media id %s: %v", user.AssignedMedia.ID, err)
+			resp.Write(w, http.StatusInternalServerError)
+			return
+		}
 
-		// 		if err != nil {
-		// 			resp.Err = fmt.Sprintf("failed to fetch title for media id %s: %v", user.AssignedMediaID, err)
-		// 			resp.Write(w)
-		// 			return
-		// 		}
+		metadataLen := len(metadata.MediaContainer.Metadata)
+		// metadataLen, err := strconv.Atoi(metadata.Size)
 
-		// 		metadataLen, err := strconv.Atoi(metadata.Size)
+		// if err != nil {
+		// 	resp.Err = fmt.Sprintf("(%s) failed to convert metadata length to int: %v", user.AssignedMedia.ID, err)
+		// 	resp.Write(w, http.StatusInternalServerError)
+		// 	return
+		// }
 
-		// 		if err != nil {
-		// 			resp.Err = fmt.Sprintf("(%s) failed to convert metadata length to int: %v", user.AssignedMediaID, err)
-		// 			resp.Write(w)
-		// 			return
-		// 		}
+		if metadataLen > 0 {
+			data := metadata.MediaContainer.Metadata[0]
 
-		// 		if metadataLen > 0 {
-		// 			data := metadata.Metadata[0]
+			var title string
 
-		// 			var title string
+			if isVerbose {
+				fmt.Printf("metadata for %s: title: %s, grandparent title: %s, parent title: %s, type: %s\n",
+					data.RatingKey,
+					data.Title,
+					data.GrandparentTitle,
+					data.ParentTitle,
+					data.Type,
+				)
+			}
 
-		// 			// combine show name, season, and episode name if type == episode
-		// 			if data.Type == "episode" {
-		// 				title = data.GrandparentTitle + ": " + data.ParentTitle + " - " + data.Title
-		// 			} else {
-		// 				// type is movie just need the title
-		// 				title = metadata.MediaContainer.Metadata[0].Title
-		// 			}
+			// only handle episodes or movies -- season and show return error
+			if data.Type != "episode" && data.Type != "movie" {
+				resp.Err = "assigned media must be of type 'movie' or 'episode' - received type: '" + data.Type + "'"
+				resp.Write(w, http.StatusBadRequest)
+				return
+			}
 
-		// 			user.Title = title
-		// 		}
+			// combine show name, season, and episode name if type == episode
+			if data.Type == "episode" {
+				title = data.GrandparentTitle + ": " + data.ParentTitle + " - " + data.Title
+			} else {
+				// type is movie just need the title
+				title = metadata.MediaContainer.Metadata[0].Title
+			}
+
+			user.Title = title
+		}
+
+		// we can assume the user being added is a plex friend
+		friends, err := plexConnection.GetFriends()
+
+		if err != nil {
+			resp.Err = fmt.Sprintf("failed to fetch plex friends: %v", err)
+			resp.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		friendUsername, err := getFriendUsernameByID(friends, user.PlexUserID)
+
+		if err != nil {
+			resp.Err = fmt.Sprintf("failed to get plex username: %v", err)
+			resp.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		user.Name = friendUsername
 
 		if err := db.SaveUser(user); err != nil {
 			resp.Err = fmt.Sprintf("failed to save user: %v\n", err)
@@ -210,6 +235,18 @@ func AddUser(db datastore.Store, plexConnection *plexServer) func(w http.Respons
 
 		resp.Write(w, http.StatusOK)
 	}
+}
+
+func getFriendUsernameByID(friends []plex.Friends, id string) (string, error) {
+	for _, friend := range friends {
+		friendID := strconv.Itoa(friend.ID)
+
+		if friendID == id {
+			return friend.Username, nil
+		}
+	}
+
+	return "", fmt.Errorf("could not find friend with that id")
 }
 
 // GetAllUsers returns all monitored users
@@ -641,7 +678,7 @@ func main() {
 				}
 
 				// end stream
-				if userInStore.MediaID != r.ratingKey {
+				if userInStore.AssignedMedia.ID != r.ratingKey {
 					fmt.Printf("\t%s (%s) is not allowed to watch %s\n\tattempting to terminate stream...\n", userInStore.Name, userInStore.PlexUserID, r.ratingKey)
 
 					if *hasPlexPass {
