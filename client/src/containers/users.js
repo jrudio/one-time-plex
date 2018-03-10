@@ -2,7 +2,7 @@ import React from 'react'
 import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import Users from '../components/users'
-import { addUser, getMonitoredUsers } from '../actions/users'
+import { addUser, getMonitoredUsers, selectUser } from '../actions/users'
 import { Spinner } from 'react-mdl'
 
 const UsersContainer = props => {
@@ -33,7 +33,8 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = dispatch => ({
     addUser: bindActionCreators(addUser, dispatch),
-    getMonitoredUsers: bindActionCreators(getMonitoredUsers, dispatch)
+    getMonitoredUsers: bindActionCreators(getMonitoredUsers, dispatch),
+    selectUser: bindActionCreators(selectUser, dispatch)
 })
 
 export default connect(

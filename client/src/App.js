@@ -1,8 +1,9 @@
 import React, { Component } from 'react'
 import logo from './logo.svg'
-import Users from './containers/users'
+// import Users from './containers/users'
 import AddUser from './containers/adduser'
-import Search from './containers/search'
+// import Search from './containers/search'
+import AssignedMedia from './containers/assignedmedia'
 import { Grid, Cell } from 'react-mdl'
 import './App.css'
 
@@ -23,20 +24,18 @@ class App extends Component {
         <div style={{ width: '80%', margin: 'auto'}}>
           <Grid>
             <Cell col={4}>
-              <h4>Add User:</h4>
+              <h4>Plex Friends:</h4>
               
               <AddUser />
             </Cell>
 
             <Cell col={4}>
-              <h4>Search Plex:</h4>
+              {/* <h4>Search Plex:</h4>
 
-              <Search />
-            </Cell>
-            <Cell col={4}>
-              <h4>Monitored Users:</h4>
+              <Search /> */}
+              <h4>Assigned Media</h4>
 
-              <Users />
+              <AssignedMedia />
             </Cell>
           </Grid>
         </div>

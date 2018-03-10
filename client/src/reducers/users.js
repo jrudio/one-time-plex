@@ -1,7 +1,8 @@
 import { 
     ADD_USER,
     MONITORED_USERS_HAVE_BEEN_FETCHED,
-    MONITORED_USERS_FETCH
+    MONITORED_USERS_FETCH,
+    SELECT_USER
 } from '../constants/users'
 
 export default (state = {}, action) => {
@@ -26,6 +27,13 @@ export default (state = {}, action) => {
                 isLoading: false,
                 list: users
             })
+        case SELECT_USER:
+            let { id } = action
+
+            return Object.assign({}, state, {
+                currentlySelected: id
+            })
+
         default:
             if (state.isLoading === undefined) {
                 state.isLoading = true
@@ -33,6 +41,10 @@ export default (state = {}, action) => {
 
             if (state.list === undefined) {
                 state.list = []
+            }
+
+            if (state.currentlySelected === undefined) {
+                state.currentlySelected = ''
             }
 
             return state

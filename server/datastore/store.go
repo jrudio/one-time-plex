@@ -399,3 +399,38 @@ func (s Store) GetAllUsers() (map[string]User, error) {
 
 	return users, err
 }
+
+// DeleteUser removes a user from the datastore
+func (s Store) DeleteUser(id string) error {
+	if id == "" {
+		return fmt.Errorf("id is required")
+	}
+
+	err := s.db.Update(func(txn *badger.Txn) error {
+		key := append(s.keys.userPrefix, []byte(id)...)
+
+		return txn.Delete(key)
+	})
+
+	return err
+}
+
+// DeleteUsers removes multiple users from the datastore
+func (s Store) DeleteUsers(userIDs []string) error {
+	idLen := len(userIDs)
+
+	err := s.db.Update(func(txn *badger.Txn) error {
+		for i := 0; i < idLen; i++ {
+			key := append(s.keys.userPrefix, []byte(userIDs[i])...)
+
+			if err := txn.Delete(key); err != nil {
+				fmt.Printf("failed to delete user id %s: %v\n", userIDs[i], err)
+				continue
+			}
+		}
+
+		return nil
+	})
+
+	return err
+}

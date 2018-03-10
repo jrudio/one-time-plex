@@ -5,7 +5,8 @@ import {
     FRIENDS_DONE_FETCHING,
     FRIENDS_ERROR,
     MONITORED_USERS_HAVE_BEEN_FETCHED,
-    MONITORED_USERS_FETCH
+    MONITORED_USERS_FETCH,
+    SELECT_USER
  } from '../constants/users'
 // import fetch from 'isomorphic-fetch'
 
@@ -29,6 +30,11 @@ const monitoredUsersFetched = users => ({
 const fetchedErr = err => ({
     type: FRIENDS_ERROR,
     errorMsg: err
+})
+
+const _selectUser = id => ({
+    id,
+    type: SELECT_USER
 })
 
 export const addUser = (user = {}) => {
@@ -61,11 +67,6 @@ export const addUser = (user = {}) => {
 
 export const getFriends = () => {
     return dispatch => {
-        let friends = [
-            { id: '1234', username: 'Guest' },
-            { id: '2145', username: 'siirclutch-guest' }
-        ]
-
         dispatch(fetchFriends)
 
         return fetch(window.otp.url + '/friends')
@@ -76,7 +77,7 @@ export const getFriends = () => {
 
                 return dispatch({
                     type: FRIENDS_ADD,
-                    friends
+                    friends: r.result
                 })
             })
             .catch(e => {
@@ -107,6 +108,12 @@ export const getMonitoredUsers = () => {
                 // dispatch(fetchedErr(e.message))
             // })
 
+    }
+}
+
+export const selectUser = (id = '') => {
+    return dispatch => {
+        dispatch(_selectUser(id))
     }
 }
 

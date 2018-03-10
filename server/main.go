@@ -42,11 +42,11 @@ type plexMetadataChildren struct {
 }
 
 type plexFriend struct {
-	ID              string `json:"id"`
-	Username        string `json:"username"`
-	ServerName      string `json:"serverName"`
-	ServerID        string `json:"serverID"`
-	ServerMachineID string `json:"serverMachineID"`
+	ID       string `json:"id"`
+	Username string `json:"username"`
+	// ServerName      string `json:"serverName"`
+	// ServerID        string `json:"serverID"`
+	// ServerMachineID string `json:"serverMachineID"`
 }
 
 type clientResponse struct {
@@ -264,7 +264,74 @@ func GetAllUsers(db datastore.Store) func(w http.ResponseWriter, r *http.Request
 			return
 		}
 
+		fmt.Println(users)
+
 		resp.Result = users
+		resp.Write(w, http.StatusOK)
+	}
+}
+
+// RemoveAllUsers clears out the monitored users
+func RemoveAllUsers(db datastore.Store) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		resp := clientResponse{}
+
+		users, err := db.GetAllUsers()
+
+		if err != nil {
+			resp.Err = fmt.Sprintf("failed to fetch all user ids: %v", err)
+			resp.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		userIDs := make([]string, len(users))
+
+		i := 0
+
+		for userID := range users {
+			userIDs[i] = userID
+
+			i++
+		}
+
+		if err := db.DeleteUsers(userIDs); err != nil {
+			resp.Err = fmt.Sprintf("failed to delete users: %v", err)
+			resp.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		resp.Result = true
+		resp.Write(w, http.StatusOK)
+	}
+}
+
+// RemoveUser removes a monitored user
+func RemoveUser(db datastore.Store) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		pathVars := mux.Vars(r)
+		resp := clientResponse{}
+
+		userID, ok := pathVars["id"]
+
+		if !ok {
+			resp.Result = "one time plex failed to parse id -- developer error"
+			resp.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		if userID == "" {
+			resp.Err = "user id is required"
+			resp.Write(w, http.StatusBadRequest)
+			return
+		}
+
+		if err := db.DeleteUser(userID); err != nil {
+			resp.Err = fmt.Sprintf("failed to delete user %s: %v", userID, err)
+			resp.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		resp.Result = true
 		resp.Write(w, http.StatusOK)
 	}
 }
@@ -328,9 +395,25 @@ func GetPlexFriends(plexConnection *plexServer) func(w http.ResponseWriter, r *h
 			return
 		}
 
-		response.Result = friends
+		response.Result = filterFriends(friends)
 		response.Write(w, http.StatusOK)
 	}
+}
+
+func filterFriends(friends []plex.Friends) []plexFriend {
+	friendsLen := len(friends)
+	filteredFriends := make([]plexFriend, friendsLen)
+
+	for i := 0; i < friendsLen; i++ {
+		friend := friends[i]
+
+		filteredFriends[i] = plexFriend{
+			ID:       strconv.Itoa(friend.ID),
+			Username: friend.Title,
+		}
+	}
+
+	return filteredFriends
 }
 
 func filterSearchResults(results plex.SearchResults) []plexSearchResults {
@@ -733,6 +816,11 @@ func main() {
 
 	// list one-time users
 	apiRouter.HandleFunc("/users", GetAllUsers(db)).Methods("GET")
+
+	// clear all one-time users
+	apiRouter.HandleFunc("/users/clear", RemoveAllUsers(db)).Methods("DELETE")
+
+	apiRouter.HandleFunc("/user/{id}", RemoveUser(db)).Methods("DELETE")
 
 	// search media on plex
 	apiRouter.HandleFunc("/search", SearchPlex(plexConnection)).Methods("GET")

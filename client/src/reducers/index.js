@@ -8,7 +8,18 @@ import Search from './search'
 
     {
         users: {
-            list: [ {plexUserID: '1954', plexusername: 'jrudio' } ],
+            list: [ 
+                { 
+                    plexUserID: '1234',
+                    plexUsername: 'jrudio-guest',
+                    assignedMediaID: {
+                        id: 123,
+                        title: 'atlanta - s1e2,
+                        status: 'finished'
+                    }
+                }
+            ],
+            currentlySelected: '1234',
             isLoading: true
         },
         friends: {
