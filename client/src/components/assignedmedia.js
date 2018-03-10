@@ -7,10 +7,14 @@ class AssignedMedia extends Component {
             currentlySelected
         } = this.props
 
-        console.log(user)
-        console.log(currentlySelected)
+        if (user === undefined) {
+            return <p>No media assigned</p>
+        }
 
-        return <p>{user && user.plexUsername}</p>
+        return (<div>
+            <p>{user.plexUsername} is assigned to {user.assignedMedia.title}</p>
+            <p>status: {user.assignedMedia.status}</p>
+        </div>)
     }
 }
 
