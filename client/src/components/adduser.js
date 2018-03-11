@@ -44,11 +44,26 @@ class AddUser extends Component {
 
         selectUser(id)
     }
+    renderFriend (friend) {
+        return (
+            <div>
+                {friend.username}
+            </div>
+        )
+    }
+    renderSelectedFriend (friend) {
+        return (
+            <b>
+                {friend.username}
+            </b>
+        )
+    }
     renderSelectFriend () {
         let {
             friends,
             isFriendListLoading,
-            errorMsg
+            errorMsg,
+            currentlySelected // selected plex user id
         } = this.props
 
         if (friends && friends.length === 0) {
@@ -67,11 +82,12 @@ class AddUser extends Component {
                 <Cell col={12}>
                     <List style={styles.friendList}>
                         {friends.map((friend, i) => (<ListItem key={i} style={styles.pointer} onClick={(e) => {
-                                    // console.log(e.target)
-                                this.handleSelectFriend({ id: friend.id, username: friend.username })
-                                }} >
-                                <ListItemContent>{friend.username}</ListItemContent>
-                            </ListItem>))
+                            this.handleSelectFriend({ id: friend.id, username: friend.username })
+                            }} >
+                            <ListItemContent>
+                                {friend.id === currentlySelected && this.renderSelectedFriend(friend) || this.renderFriend(friend)}
+                            </ListItemContent>
+                        </ListItem>))
                         }
                     </List>
                 </Cell>

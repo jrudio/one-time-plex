@@ -6,18 +6,20 @@ import { addUser, getFriends, selectUser, getMonitoredUsers } from '../actions/u
 // import { getAssignedMedia } from '../actions/assignedmedia'
 
 const mapStateToProps = (state) => {
-    let { friends } = state
+    let { friends, users } = state
     let {
         isFriendListLoading,
         errorMsg
     } = friends
+    let { currentlySelected } = users
     
-    console.log(state)
+    // console.log(state)
     
     return {
+        currentlySelected,
+        errorMsg,
         friends: friends.friendList,
-        isFriendListLoading,
-        errorMsg
+        isFriendListLoading
     }
 }
 
@@ -25,8 +27,7 @@ const mapDispatchToProps = dispatch => ({
     selectUser: bindActionCreators(selectUser, dispatch),
     addUser: bindActionCreators(addUser, dispatch),
     getFriends: bindActionCreators(getFriends, dispatch),
-    getMonitoredUsers: bindActionCreators(getMonitoredUsers, dispatch),
-    // getAssignedMedia: bindActionCreators(getAssignedMedia, dispatch)
+    getMonitoredUsers: bindActionCreators(getMonitoredUsers, dispatch)
 
 })
 
