@@ -1,5 +1,7 @@
 import fetch from 'isomorphic-fetch'
 
+import REMOVE_USER from '../constants/users'
+
 // getAssignedMedia returns all plex friends with any assigned media
 export const getAssignedMedia = (mediaID = '') => {
     return dispatch => {
@@ -18,5 +20,32 @@ export const getAssignedMedia = (mediaID = '') => {
                 console.log(result)
             })
             .catch(e => console.error(e))
+    }
+}
+
+export const unassignFriend = (plexUserID = '') => {
+    return dispatch => {
+        if (plexUserID === '') {
+            console.error("plex user id is required to unassign")
+            return
+        }
+
+        return fetch(window.otp.url + '/user/' + plexUserID, {
+            method: 'DELETE'
+        })
+            .then(r => r.json())
+            .then(r => {
+                if (!r.result) {
+                    console.error('failed to unassign user: ' + r.error)
+                    return
+                }
+
+                dispatch({
+                    type: REMOVE_USER,
+                    id: plexUserID
+                })
+
+                return true
+            })
     }
 }

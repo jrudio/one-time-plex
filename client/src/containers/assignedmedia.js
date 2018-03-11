@@ -3,6 +3,7 @@ import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import AssignedMedia from '../components/assignedmedia'
 import { getMonitoredUsers } from '../actions/users'
+import { unassignFriend } from '../actions/assignedmedia'
 
 const AssignedMediaContainer = props => {
     let {
@@ -31,7 +32,8 @@ const mapStateToProps = (state) => {
 }
 
 const mapDispatchToProps = dispatch => ({
-    getAssignedMedia: bindActionCreators(getMonitoredUsers, dispatch)
+    getAssignedMedia: bindActionCreators(getMonitoredUsers, dispatch),
+    unassignFriend: bindActionCreators(unassignFriend, dispatch)
 })
 
 export default connect(

@@ -116,5 +116,3 @@ export const selectUser = (id = '') => {
         dispatch(_selectUser(id))
     }
 }
-
-window.ayy = getMonitoredUsers

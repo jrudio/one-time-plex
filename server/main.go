@@ -820,7 +820,7 @@ func main() {
 	// clear all one-time users
 	apiRouter.HandleFunc("/users/clear", RemoveAllUsers(db)).Methods("DELETE")
 
-	apiRouter.HandleFunc("/user/{id}", RemoveUser(db)).Methods("DELETE")
+	apiRouter.HandleFunc("/user/{id}", RemoveUser(db)).Methods("DELETE", "OPTIONS")
 
 	// search media on plex
 	apiRouter.HandleFunc("/search", SearchPlex(plexConnection)).Methods("GET")
