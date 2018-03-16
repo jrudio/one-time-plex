@@ -1,5 +1,6 @@
 import React, { Component } from 'react'
 import {
+    Button,
     Grid,
     Cell,
     Icon,
@@ -32,14 +33,51 @@ const styles = {
 class Search extends Component {
     componentWillMount () {
         this.setState({
-            selectedMediaTitle: '',
-            selectedMediaID: ''
+            selectedMedia: {
+                id: '',
+                title: '',
+                year: ''
+            }
         })
     }
-    handleAddMedia (title, mediaID) {
+    handleAddMedia (title, id, year) {
+        let { selectedMedia } = this.state
+
+        let newSelectedMedia = Object.assign({}, selectedMedia, {
+            id,
+            title,
+            year
+        })
+
         this.setState({
-            selectedMediaTitle: title,
-            selectedMediaID: mediaID
+            selectedMedia: newSelectedMedia
+        })
+    }
+    handleAddUser() {
+        if (!this.props || !this.state) {
+            console.error()
+            return
+        }
+
+        let { selectedMedia } = this.state
+        let { addUser, currentlySelected } = this.props
+
+        console.log('assigning media to user ' + currentlySelected + ' ' + selectedMedia.id + ' ' + selectedMedia.title)
+
+        addUser({
+            mediaID: selectedMedia.id,
+            plexUserID: currentlySelected
+        })
+    }
+    handleNo () {
+        console.log('no')
+
+        this.setState({
+            selectedMedia: {
+                id: '',
+                title: '',
+                year: ''
+            }
         })
     }
     handleGetMetadata (mediaID) {
@@ -62,23 +100,28 @@ class Search extends Component {
             searchPlexForMedia(searchText)
         }
     }
-    handleSelectResult (e, mediaType, mediaID, title) {
+    handleSelectResult (e, mediaType, mediaID, title, year) {
+        // show tv show's seasons or a season's episodes
         if (mediaType === 'show' || mediaType === 'season') {
             this.handleGetMetadata(mediaID)
             return
         }
 
         // it's either a movie or episode
-        this.handleAddMedia(title, mediaID)
+        this.handleAddMedia(title, mediaID, year)
+    }
+    renderAddSuccessful () {
+        return <div><Icon name="check" className="text-green" /></div>
     }
     renderSearchResults (results) {
-        let { selectedMediaID } = this.state
+        let { selectedMedia } = this.state
+        let { id } = selectedMedia
 
-        return <List style={styles.searchResults} >  
+        return <List style={styles.searchResults} >
             {results && results.map((r, i) => {
                 let highlighted = {}
 
-                if (selectedMediaID === r.mediaID) {
+                if (id === r.mediaID) {
                     highlighted = styles.selected
                 }
                 
@@ -91,10 +134,10 @@ class Search extends Component {
                 
                 return (
                     <ListItem key={i}>
-                        <ListItemContent style={highlighted} onClick={(e) => this.handleSelectResult(e, r.type, r.mediaID, r.title)} >{r.title} {r.year && '(' + r.year + ')' }</ListItemContent>
-                        <ListItemAction>
-                            <a><Icon name={iconType} onClick={(e) => this.handleSelectResult(e, r.type, r.mediaID, r.title)} /></a>
-                        </ListItemAction>
+                        <ListItemContent style={highlighted} onClick={(e) => this.handleSelectResult(e, r.type, r.mediaID, r.title, r.year)} >{r.title} {r.year && '(' + r.year + ')' }</ListItemContent>
+                        {/* <ListItemAction>
+                            <a><Icon name={iconType} onClick={(e) => this.handleSelectResult(e, r.type, r.mediaID, r.title, r.year)} /></a>
+                        </ListItemAction> */}
                     </ListItem>
                 )
             })}
@@ -108,8 +151,7 @@ class Search extends Component {
         } = this.props
 
         let {
-            selectedMediaTitle,
-            selectedMediaID
+            selectedMedia
         } = this.state
         
         return (
@@ -126,15 +168,22 @@ class Search extends Component {
                             <a><Icon name='arrow_back' style={styles.navback} /></a>
                         </div>
                     )}*/}
-                    {selectedMediaID && (
-                        <div>
-                            <p>Media id for <i>{selectedMediaTitle}</i> is:</p>
-                            <pre>{selectedMediaID}</pre>
-                        </div>
-                    )}
                 </Cell>
                 <Cell col={12}>
                     {/* Search results */}
+                    {(() => {
+                        if (selectedMedia.id !== '') {
+                            return (
+                                <div>
+                                    <p>Are you sure you want to assign {selectedMedia.title} to this user?</p> 
+                                    <Button onClick={() => this.handleAddUser()}>yes</Button>
+                                    <Button onClick={() => this.handleNo()}>no</Button>
+                                </div>
+                            )
+                        }
+
+
+                    })()}
                     {isSearching && (<ProgressBar indeterminate />)}
                     {!isSearching && !errorMsg && this.renderSearchResults(results)}
                     {!isSearching && errorMsg && (<p style={styles.errMsg}>{errorMsg}</p>)}

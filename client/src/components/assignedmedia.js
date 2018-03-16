@@ -17,10 +17,7 @@ class AssignedMedia extends Component {
         )
     }
     render () {
-        let {
-            user,
-            currentlySelected
-        } = this.props
+        let { user } = this.props
 
         if (user === undefined) {
             return this.renderChooseMedia()

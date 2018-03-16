@@ -5,10 +5,7 @@ import {
     List,
     ListItem,
     ListItemContent,
-    // ListItemAction,
     Spinner,
-    // Icon,
-    // Checkbox,
 } from 'react-mdl'
 import Proptypes from 'prop-types'
 
@@ -85,7 +82,13 @@ class AddUser extends Component {
                             this.handleSelectFriend({ id: friend.id, username: friend.username })
                             }} >
                             <ListItemContent>
-                                {friend.id === currentlySelected && this.renderSelectedFriend(friend) || this.renderFriend(friend)}
+                                {(() => {
+                                    if (friend.id === currentlySelected) {
+                                       return this.renderSelectedFriend(friend)
+                                    }
+
+                                    return this.renderFriend(friend)
+                                })()}
                             </ListItemContent>
                         </ListItem>))
                         }

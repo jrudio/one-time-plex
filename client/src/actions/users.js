@@ -8,6 +8,7 @@ import {
     MONITORED_USERS_FETCH,
     SELECT_USER
  } from '../constants/users'
+import { format } from 'url';
 // import fetch from 'isomorphic-fetch'
 
 const fetchFriends = {
@@ -46,6 +47,16 @@ export const addUser = (user = {}) => {
         //     err: null,
         //     result: user
         // }
+
+        // we are expecting an object with props of
+        // - plexUserID
+        // - mediaID
+
+        // if (user && !user.mediaID || user && !user.plexUserID) {
+        //     console.error('addUser() requires a user object with mediaID and a plexUserID')
+        //     return
+        // }
+        // console.log(user)
 
         return fetch(window.otp.url + '/users/add', {
             method: 'POST',

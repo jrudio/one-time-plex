@@ -66,6 +66,15 @@ type usersPayload struct {
 	Result []restrictedUser `json:"result"`
 }
 
+type addUserPost struct {
+	UserID  string `json:"plexUserID"`
+	MediaID string `json:"mediaID"`
+}
+
+func (a addUserPost) unserialize(data []byte) error {
+	return json.Unmarshal(data, &a)
+}
+
 func (u usersPayload) toBytes() ([]byte, error) {
 	return json.Marshal(u)
 }
@@ -136,18 +145,26 @@ func AddUser(db datastore.Store, plexConnection *plexServer) func(w http.Respons
 		var user datastore.User
 		var resp clientResponse
 
-		// check for required parameters
-		if err := r.ParseForm(); err != nil {
-			resp.Err = "failed to parse form"
+		var postData addUserPost
+
+		if err := json.NewDecoder(r.Body).Decode(&postData); err != nil {
+			resp.Err = "failed to parse form data"
 			resp.Write(w, http.StatusBadRequest)
 			return
 		}
 
-		plexUserID := r.FormValue("plexUserID")
-		mediaID := r.FormValue("mediaID")
+		// check for required parameters
+		// if err := r.ParseForm(); err != nil {
+		// 	resp.Err = "failed to parse form"
+		// 	resp.Write(w, http.StatusBadRequest)
+		// 	return
+		// }
 
-		user.PlexUserID = plexUserID
-		user.AssignedMedia.ID = mediaID
+		// plexUserID := r.FormValue("plexUserID")
+		// mediaID := r.FormValue("mediaID")
+
+		user.PlexUserID = postData.UserID
+		user.AssignedMedia.ID = postData.MediaID
 		user.AssignedMedia.Status = "not started"
 
 		if user.PlexUserID == "" || user.AssignedMedia.ID == "" {
@@ -371,12 +388,24 @@ func filterMetadata(results plex.MetadataChildren) []plexMetadataChildren {
 	for i := 0; i < resultsLen; i++ {
 		metadata := results.MediaContainer.Metadata[i]
 
+		title := metadata.Title
+
+		if metadata.Type == "episode" {
+			// title of the show + episode name
+			title = results.MediaContainer.Title1 + ": " + metadata.Title
+		}
+
 		filteredMetadata[i] = plexMetadataChildren{
-			Title:     metadata.Title,
+			Title:     title,
 			Year:      "N/A",
-			MediaID:   metadata.Key,
+			MediaID:   metadata.RatingKey,
 			MediaType: metadata.Type,
 		}
+
+		// if year := strconv.FormatInt(metadata.Year, 10); year != "" {
+		// 	filteredMetadata.Year = year
+		// }
+
 	}
 
 	return filteredMetadata
