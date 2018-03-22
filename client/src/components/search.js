@@ -7,7 +7,7 @@ import {
     List,
     ListItem,
     ListItemContent,
-    ListItemAction,
+    // ListItemAction,
     ProgressBar,
     Textfield
 } from 'react-mdl'
@@ -126,11 +126,11 @@ class Search extends Component {
                 }
                 
                 /* default movie or episode */
-                let iconType = 'add'
+                // let iconType = 'add'
 
-                if (r.type === 'show' || r.type === 'season') {
-                    iconType = 'arrow_right'
-                }
+                // if (r.type === 'show' || r.type === 'season') {
+                //     iconType = 'arrow_right'
+                // }
                 
                 return (
                     <ListItem key={i}>

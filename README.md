@@ -1,39 +1,52 @@
 # One Time Plex (OTP)
 
-One Time Plex (OTP) allows a Plex user to access one movie or episode of a tv series from your Plex Media Server. It features a REST api to allow you to interact with it programmatically.
+One Time Plex (OTP) allows a Plex user to access one movie or episode of a tv series from your Plex Media Server.
 
 ### How It Works
 
-* You (the Plex server owner) share your library with a Plex user (usually a family member or friend)
-* Add that user’s Plex user id and the id of the desired media to OTP
-* OTP will monitor what this user watches, and prevent the user from watching anything other than what you assigned to them
-* Once the user is finished, OTP will automatically stop sharing the library with that Plex user
+* 
 
-### Disclaimers
+### How to setup
 
-Currently, OTP uses Plex’s web hook feature to monitor users, which is a Plex Pass feature. An option that will not rely on this will be added in the future.
+If you would like, you can download the appropriate binary for your system [here](https://github.com/jrudio/one-time-plex/releases).
 
-### Setup
+If not, here's how you can build this repo from scratch:
 
-- Add a plex webhook on your PMS and point it to one time plex
-    The default address (of one time plex) should be `localhost:8080/webhook`
-
-- Run `./otp -write` to create a default configuration file
-
-- Edit it to reflect your settings
+1. clone this repo
+2. make sure [Go is installed](https://golang.org/dl/)
+3. then install [Go dep](https://github.com/golang/dep)
+4. `cd server/`
+3. run `dep ensure`
+4. run `go build -o one-time-plex`
 
 
-### Usage
+### Notes
 
-- Grab the user id of the Plex user you are sharing your library with
+*The following instructions are for mainly for building a binary when changes to the front end occur*
 
-- Grab the media id (called the rating key in Plex) of the movie or episode of that user is assigned to
+Here is how to bake the front end files into the server, so we get a single binary:
 
-- Make a `POST` request to `/api/users/add` with the following in the body:
+Make sure these are installed:
 
-  ```bash
-    plexuserid: <plex-user-id>
-    mediaID: <media-id>
-  ```
+- Go
+- Go dep (dependency tool)
+- npm or yarn
+- [go-bindata](github.com/jteeuwen/go-bindata/)
+- [go-bindata-assetfs](github.com/elazarl/go-bindata-assetfs/)
 
-- That's it!
+Front end
+
+1. `yarn run build` or `npm run build` to create a production build of the front end
+2. copy `client/build` to `server/build`
+
+
+Back end
+
+1. `cd server/`
+2. run `go-bindata-assetfs ./build/...` this generates `bindata.go`
+3. `go build -o one-time-plex`
+
+
+
+
+

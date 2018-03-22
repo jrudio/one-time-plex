@@ -8,7 +8,7 @@ import {
     MONITORED_USERS_FETCH,
     SELECT_USER
  } from '../constants/users'
-import { format } from 'url';
+// import { format } from 'url';
 // import fetch from 'isomorphic-fetch'
 
 const fetchFriends = {
