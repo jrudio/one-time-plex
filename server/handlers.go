@@ -71,7 +71,8 @@ func (r restrictedUser) toBytes() ([]byte, error) {
 func (c clientResponse) Write(w http.ResponseWriter, errCode int) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "POST GET")
+	w.Header().Set("Access-Control-Allow-Headers", "POST GET PUT")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, PUT, DELETE")
 
 	response, err := json.Marshal(&c)
 
@@ -486,6 +487,46 @@ func SearchPlex(plexConnection *plexServer) func(w http.ResponseWriter, r *http.
 	}
 }
 
+func TestPlexConnection(w http.ResponseWriter, r *http.Request) {
+	var resp clientResponse
+
+	query := r.URL.Query()
+
+	plexURL := query.Get("url")
+	plexToken := query.Get("token")
+
+	if plexURL == "" || plexToken == "" {
+		resp.Err = "url and token are required"
+		resp.Write(w, http.StatusBadRequest)
+		return
+	}
+
+	plexConnection, err := plex.New(plexURL, plexToken)
+
+	if err != nil {
+		resp.Err = "testing connection to plex failed: " + err.Error()
+		resp.Write(w, http.StatusBadRequest)
+		return
+	}
+
+	result, err := plexConnection.Test()
+
+	if err != nil {
+		resp.Err = err.Error()
+
+		resp.Write(w, http.StatusInternalServerError)
+		return
+	}
+
+	resp.Result = result
+	resp.Write(w, http.StatusOK)
+}
+
+type plexServerResp struct {
+	URL   string `json:"url"`
+	Token string `json:"token"`
+}
+
 // ConfigurePlexServer retrieve, add, edit, and delete plex server from one time plex
 func ConfigurePlexServer(db datastore.Store, plexConnection *plexServer) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -493,6 +534,35 @@ func ConfigurePlexServer(db datastore.Store, plexConnection *plexServer) func(w 
 		var resp clientResponse
 
 		switch r.Method {
+		case "GET":
+			server, err := db.GetPlexServer()
+
+			if err != nil {
+				resp.Err = "failed to get plex server url: " + err.Error()
+				resp.Write(w, http.StatusInternalServerError)
+				return
+			}
+
+			token, err := db.GetPlexToken()
+
+			if err != nil {
+				resp.Err = "failed to get plex server token: " + err.Error()
+				resp.Write(w, http.StatusInternalServerError)
+				return
+			}
+
+			serverResp := plexServerResp{
+				URL:   server.URL,
+				Token: token,
+			}
+
+			if err != nil {
+				resp.Err = "failed to serialize plex server: " + err.Error()
+				resp.Write(w, http.StatusInternalServerError)
+				return
+			}
+
+			resp.Result = serverResp
 		case "POST":
 			if err := r.ParseForm(); err != nil {
 				resp.Err = fmt.Sprintf("parsing body failed: %v", err)
@@ -505,13 +575,32 @@ func ConfigurePlexServer(db datastore.Store, plexConnection *plexServer) func(w 
 
 			resp.Result = fmt.Sprintf("received %s, %s", plexURL, plexToken)
 		case "PUT":
-			if err := r.ParseForm(); err != nil {
-				resp.Err = fmt.Sprintf("parsing body failed: %v", err)
-				resp.Write(w, http.StatusBadRequest)
-				return
+			var plexURL string
+			var plexToken string
+
+			if r.Header.Get("Accept") == "application/json" {
+				var serverInfo plexServerResp
+
+				if err := json.NewDecoder(r.Body).Decode(&serverInfo); err != nil {
+					resp.Err = "body parse failed: " + err.Error()
+					resp.Write(w, http.StatusBadRequest)
+					return
+				}
+
+				plexURL = serverInfo.URL
+				plexToken = serverInfo.Token
+			} else {
+				if err := r.ParseForm(); err != nil {
+					resp.Err = fmt.Sprintf("parsing body failed: %v", err)
+					resp.Write(w, http.StatusBadRequest)
+					return
+				}
+
+				plexURL = r.FormValue("url")
+				plexToken = r.FormValue("token")
 			}
 
-			if plexURL := r.FormValue("url"); plexURL != "" {
+			if plexURL != "" {
 				plexConnection.setURL(plexURL)
 
 				if err := db.SavePlexServer(datastore.Server{
@@ -520,17 +609,27 @@ func ConfigurePlexServer(db datastore.Store, plexConnection *plexServer) func(w 
 				}); err != nil {
 					fmt.Printf("saving plex url failed: %v", err)
 				}
+			} else {
+				resp.Err = "url is required"
+				resp.Write(w, http.StatusBadRequest)
+				return
 			}
-			if plexToken := r.FormValue("token"); plexToken != "" {
+
+			if plexToken != "" {
 				plexConnection.setToken(plexToken)
 
 				if err := db.SavePlexToken(plexToken); err != nil {
 					fmt.Printf("saving plex token failed: %v", err)
 				}
+			} else {
+				resp.Err = "token is required"
+				resp.Write(w, http.StatusBadRequest)
+				return
 			}
 
 			resp.Result = true
-
+		case "OPTIONS":
+			resp.Result = true
 		default:
 			resp.Err = "unknown method"
 			resp.Write(w, http.StatusMethodNotAllowed)

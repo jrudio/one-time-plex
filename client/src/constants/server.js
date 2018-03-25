@@ -1,0 +1,6 @@
+export const ISFETCHING = 'FETCHING'
+export const FETCHED = 'FETCHED'
+export const CHANGEINFO = 'CHANGEINFO'
+export const ERRMESSAGE = 'ERRMESSAGE'
+export const RECEIVEDINFO = 'RECEIVEDINFO'
+export const TEST_CONNECTION = 'TEST_CONNECTION'

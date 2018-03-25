@@ -1,19 +1,73 @@
 import React, { Component } from 'react'
 import logo from './logo.svg'
-// import Users from './containers/users'
 import AddUser from './containers/adduser'
-// import Search from './containers/search'
+import Server from './containers/server'
 import AssignedMedia from './containers/assignedmedia'
-import { Grid, Cell } from 'react-mdl'
+import { Grid, Button, Cell } from 'react-mdl'
 import './App.css'
 
 window.otp = {
   url: '//localhost:6969/api'
-  // url: 'http://localhost:6969/api'
 }
 
 class App extends Component {
+  componentWillMount () {
+    // page can be one of:
+    // - home
+    // - settings
+    this.setState({
+      page: 'home'
+    })
+  }
+  showPage(page = '') {
+    if (page === '') {
+      console.log('showPage() please be explicit when calling showPage')
+      page = 'home'
+    }
+
+    this.setState({
+      page
+    })
+  }
+  renderSettings () {
+    return (
+      <Grid>
+        <Cell col={12}>
+          <Button onClick={() => this.showPage('home')}>Go Home</Button>
+        </Cell>
+
+        <Server />
+      </Grid>
+    )
+  }
+  renderUnknownPage () {
+    return <h3>Page not defined</h3>
+  }
+  renderHome () {
+    return (
+      <Grid>
+        <Cell col={12}>
+          <Button onClick={() => this.showPage('settings')}>Server Settings</Button>
+        </Cell>
+        <Cell col={4}>
+          <h4>Plex Friends:</h4>
+
+          <AddUser />
+        </Cell>
+
+        <Cell col={4}>
+          <h4>Assigned Media</h4>
+
+          <AssignedMedia />
+        </Cell>
+      </Grid>
+    )
+  }
   render() {
+    let {
+      page
+    } = this.state
+
     return (
       <div className="App">
         <div className="App-header">
@@ -21,23 +75,17 @@ class App extends Component {
           <h2>Welcome to One Time Plex</h2>
         </div>
 
-        <div style={{ width: '80%', margin: 'auto'}}>
-          <Grid>
-            <Cell col={4}>
-              <h4>Plex Friends:</h4>
-              
-              <AddUser />
-            </Cell>
-
-            <Cell col={4}>
-              {/* <h4>Search Plex:</h4>
-
-              <Search /> */}
-              <h4>Assigned Media</h4>
-
-              <AssignedMedia />
-            </Cell>
-          </Grid>
+        <div style={{ width: '80%', margin: 'auto' }}>
+          {(() => {
+            switch (page) {
+              case 'home':
+                return this.renderHome()
+              case 'settings':
+                return this.renderSettings()
+              default:
+                return this.renderUnknownPage()
+            }
+          })()}
         </div>
       </div>
     )

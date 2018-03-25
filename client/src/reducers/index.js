@@ -2,6 +2,7 @@ import { combineReducers } from 'redux'
 import Users from './users'
 import Friends from './friends'
 import Search from './search'
+import Server from './server'
 
 /*
     Example state
@@ -31,6 +32,13 @@ import Search from './search'
             errorMSG: '',
             isSearching: false,
             results: [ { title: '...', mediaID: '3146' } ]
+        },
+        server: {
+            url: 'http://192.168.1.200:32400',
+            token: 'abc123',
+            errMessage: '',
+            message: '',
+            isFetching: false
         }
     }
 */
@@ -38,5 +46,6 @@ import Search from './search'
 export const rootReducer = combineReducers({
     users: Users,
     friends: Friends,
-    search: Search
+    search: Search,
+    server: Server
 })
