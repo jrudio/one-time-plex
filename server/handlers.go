@@ -487,6 +487,8 @@ func SearchPlex(plexConnection *plexServer) func(w http.ResponseWriter, r *http.
 	}
 }
 
+// TestPlexConnection sends a request to the specified plex server
+// checking or auth token
 func TestPlexConnection(w http.ResponseWriter, r *http.Request) {
 	var resp clientResponse
 
