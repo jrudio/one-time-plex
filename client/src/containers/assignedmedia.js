@@ -17,17 +17,25 @@ const AssignedMediaContainer = props => {
 }
 
 const mapStateToProps = (state) => {
-    let { users } = state
+    let { users, friends } = state
     let {
         isLoading,
         list,
         currentlySelected
     } = users
 
+    let currentlySelectedFriend = null
+
+    if (currentlySelected) {
+        // search through friends array to find selected friend
+        currentlySelectedFriend = friends.friendList.find(friend => friend.id === currentlySelected).username
+    }
+
     return {
         currentlySelected,
+        currentlySelectedFriend,
         isLoading,
-        users: list,
+        users: list
     }
 }
 

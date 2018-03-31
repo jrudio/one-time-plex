@@ -7,20 +7,31 @@ class AssignedMedia extends Component {
 
         unassignFriend(id)
     }
-    renderChooseMedia () {
+    renderChooseMedia (username = '') {
+        if (!username) {
+            console.error('renderChooseMedia() username is empty')
+        }
+
         return (
             <div>
-                <p>Not assigned</p>
+                <p>{username} not assigned to anything</p>
 
                 <Search />
             </div>
         )
     }
+    renderSelectAUser () {
+        return <p>Select a user</p>
+    }
     render () {
-        let { user } = this.props
+        let { user, currentlySelected, currentlySelectedFriend } = this.props
+
+        if (!currentlySelected) {
+            return this.renderSelectAUser()
+        }
 
         if (user === undefined) {
-            return this.renderChooseMedia()
+            return this.renderChooseMedia(currentlySelectedFriend)
         }
 
         return (<div>

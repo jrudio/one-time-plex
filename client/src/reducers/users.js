@@ -13,8 +13,6 @@ export default (state = {}, action) => {
     
     switch (action.type) {
         case ADD_USER:
-        // console.log(action)
-        
             delete action.type
             let newUser = action
             
@@ -31,9 +29,9 @@ export default (state = {}, action) => {
                 list
             })
         case MONITORED_USERS_FETCH:
-        return Object.assign({}, state, {
-            isLoading: true
-        })
+            return Object.assign({}, state, {
+                isLoading: true
+            })
         case MONITORED_USERS_HAVE_BEEN_FETCHED:
             let { users } = action
 
