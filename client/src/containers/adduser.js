@@ -3,7 +3,6 @@ import { bindActionCreators } from 'redux'
 import { connect } from 'react-redux'
 import AddUser from '../components/adduser'
 import { addUser, getFriends, selectUser, getMonitoredUsers } from '../actions/users'
-// import { getAssignedMedia } from '../actions/assignedmedia'
 
 const mapStateToProps = (state) => {
     let { friends, users } = state
@@ -12,8 +11,6 @@ const mapStateToProps = (state) => {
         errorMsg
     } = friends
     let { currentlySelected } = users
-    
-    // console.log(state)
     
     return {
         currentlySelected,

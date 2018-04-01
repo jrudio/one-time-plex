@@ -10,20 +10,23 @@ export default (state = {}, action) => {
     let {
         id
     } = action
-    
+
+    let list = Object.assign({}, state.list)
+
     switch (action.type) {
         case ADD_USER:
             delete action.type
             let newUser = action
-            
+
+            list[newUser.plexUserID] = newUser
+
             return Object.assign({}, state, {
-                list: [].push(state.list, newUser)
+                list
             })
         case REMOVE_USER:
             // aka unassign
-            let { list } = state
 
-            list.filter(user => user.id !== id)
+            delete list[id]
 
             return Object.assign({}, state, {
                 list

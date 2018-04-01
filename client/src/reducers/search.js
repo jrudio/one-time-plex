@@ -2,7 +2,8 @@ import { SEARCH_PLEX } from '../constants/search'
 
 /*
     {
-        errorMsg: '',
+        errMessage: '',
+        message: '',
         isSearching: <bool>
         results: []
     }

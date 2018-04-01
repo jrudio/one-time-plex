@@ -7,7 +7,6 @@ import {
     List,
     ListItem,
     ListItemContent,
-    // ListItemAction,
     ProgressBar,
     Textfield
 } from 'react-mdl'
@@ -60,7 +59,7 @@ class Search extends Component {
         }
 
         let { selectedMedia } = this.state
-        let { addUser, currentlySelected } = this.props
+        let { addUser, currentlySelected, getMonitoredUsers } = this.props
 
         console.log('assigning media to user ' + currentlySelected + ' ' + selectedMedia.id + ' ' + selectedMedia.title)
 
@@ -68,6 +67,8 @@ class Search extends Component {
             mediaID: selectedMedia.id,
             plexUserID: currentlySelected
         })
+
+        getMonitoredUsers()
     }
     handleNo () {
         console.log('no')

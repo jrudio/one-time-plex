@@ -9,8 +9,8 @@ import Server from './server'
 
     {
         users: {
-            list: [ 
-                { 
+            list: { 
+                '1234': {
                     plexUserID: '1234',
                     plexUsername: 'jrudio-guest',
                     assignedMediaID: {
@@ -19,7 +19,7 @@ import Server from './server'
                         status: 'finished'
                     }
                 }
-            ],
+            },
             currentlySelected: '1234',
             isLoading: true
         },
@@ -29,7 +29,8 @@ import Server from './server'
             errMsg: ''
         },
         search: {
-            errorMSG: '',
+            errMessage: '',
+            message: '',
             isSearching: false,
             results: [ { title: '...', mediaID: '3146' } ]
         },
