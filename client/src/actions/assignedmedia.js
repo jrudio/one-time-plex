@@ -1,6 +1,6 @@
 import fetch from 'isomorphic-fetch'
 
-import REMOVE_USER from '../constants/users'
+import { REMOVE_USER } from '../constants/users'
 
 // getAssignedMedia returns all plex friends with any assigned media
 export const getAssignedMedia = (mediaID = '') => {
@@ -44,8 +44,7 @@ export const unassignFriend = (plexUserID = '') => {
                     type: REMOVE_USER,
                     id: plexUserID
                 })
-
-                return true
             })
+            .catch(e => console.error(e))
     }
 }
