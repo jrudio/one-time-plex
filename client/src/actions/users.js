@@ -15,10 +15,6 @@ const fetchFriends = {
     type: FRIENDS_FETCH
 }
 
-const friendsHaveBeenFetched = {
-    type: FRIENDS_DONE_FETCHING
-}
-
 const fetchMonitoredUsers = {
     type: MONITORED_USERS_FETCH
 }
@@ -84,7 +80,9 @@ export const getFriends = () => {
             .then(r => r.json())
             .then(r => {
                 console.log(r)
-                dispatch(friendsHaveBeenFetched)
+                dispatch({
+                    type: FRIENDS_DONE_FETCHING
+                })
 
                 return dispatch({
                     type: FRIENDS_ADD,
@@ -92,7 +90,9 @@ export const getFriends = () => {
                 })
             })
             .catch(e => {
-                dispatch(friendsHaveBeenFetched)
+                dispatch({
+                    type: FRIENDS_DONE_FETCHING
+                })
 
                 console.error(e.message)
                 dispatch(fetchedErr(e.message))

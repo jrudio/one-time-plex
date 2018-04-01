@@ -1,6 +1,15 @@
 import { SEARCH_PLEX } from '../constants/search'
 import fetch from 'isomorphic-fetch'
 
+export const reset = () => {
+    return dispatch => {
+        dispatch({
+            type: SEARCH_PLEX,
+            results: []
+        })
+    }
+}
+
 export const searchPlexForMedia = (title = '') => {
     return dispatch => {
         if (title === '') {
