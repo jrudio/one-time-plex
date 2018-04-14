@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 	plex "github.com/jrudio/go-plex-client"
@@ -694,5 +695,66 @@ func ServeAsset(assetPath string) func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", contentType)
 		w.WriteHeader(http.StatusOK)
 		w.Write(a)
+	}
+}
+
+// OnPlaying receives info when the 'play' event from the plex server
+// it verifies with our database this user is allowed to play that media
+func OnPlaying(react chan plexUserNotification, plexConnection *plexServer) func(n plex.NotificationContainer) {
+	return func(n plex.NotificationContainer) {
+		currentTime := n.PlaySessionStateNotification[0].ViewOffset
+		mediaID := n.PlaySessionStateNotification[0].RatingKey
+		sessionID := n.PlaySessionStateNotification[0].SessionKey
+		clientID := ""
+		userID := "n/a"
+		username := "unknown"
+		playerType := ""
+
+		var duration int64
+
+		metadata, err := plexConnection.GetMetadata(mediaID)
+
+		if err != nil {
+			fmt.Printf("failed to get metadata for key %s: %v\n", mediaID, err)
+			return
+		}
+
+		duration = metadata.MediaContainer.Metadata[0].Duration
+		title := metadata.MediaContainer.Metadata[0].Title
+
+		currentTimeToSeconds := time.Duration(currentTime) * time.Millisecond
+		durationToSeconds := time.Duration(duration) * time.Millisecond
+
+		sessions, err := plexConnection.GetSessions()
+
+		if err != nil {
+			fmt.Printf("failed to fetch sessions on plex server: %v\n", err)
+			return
+		}
+
+		for _, session := range sessions.MediaContainer.Video {
+			if sessionID != session.SessionKey {
+				continue
+			}
+
+			userID = session.User.ID
+			username = session.User.Title
+			sessionID = session.Session.ID
+			clientID = session.Player.MachineIdentifier
+			playerType = session.Player.Product
+
+			break
+		}
+
+		fmt.Printf("%s is playing %s (%s)\n\t%v/%v\n", username, title, mediaID, currentTimeToSeconds, durationToSeconds)
+
+		react <- plexUserNotification{
+			ratingKey:   mediaID,
+			currentTime: currentTime,
+			userID:      userID,
+			sessionID:   sessionID,
+			clientID:    clientID,
+			playerType:  playerType,
+		}
 	}
 }

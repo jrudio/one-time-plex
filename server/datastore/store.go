@@ -32,6 +32,15 @@ type User struct {
 	PlexUserID    string `json:"plexUserID"`
 	Name          string `json:"plexUsername"`
 	AssignedMedia `json:"assignedMedia"`
+	// StoppingPlayback flag to let our program know we
+	// are attempting to stop playback
+	StoppingPlayback bool `json:"stoppingPlayback"`
+	// IsPlaybackStopped playback was stopped flag
+	IsPlaybackStopped bool `json:"playbackIsStopped"`
+	// RevokeAccess flag for revoking access to library
+	RevokeAccess bool `json:"revokeAccess"`
+	// isFriend plex user is a friend of the plex owner
+	IsFriend bool `json:"isFriend"`
 }
 
 // AssignedMedia assigned media info such as: watch status, title, an key (plex media id)
@@ -434,3 +443,5 @@ func (s Store) DeleteUsers(userIDs []string) error {
 
 	return err
 }
+
+// func (s Store) Set

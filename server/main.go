@@ -8,10 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"time"
-
-	"github.com/dgraph-io/badger"
 
 	"github.com/gorilla/mux"
 	"github.com/jrudio/go-plex-client"
@@ -48,6 +45,8 @@ func cleanup(ctrlC chan os.Signal, shutdown chan bool, db datastore.Store) {
 		}
 	}
 }
+
+// func startPlexServices() {}
 
 func main() {
 	// grab optional params
@@ -124,59 +123,7 @@ func main() {
 	}
 
 	// init plex stuff
-	plexServerInfo, err := db.GetPlexServer()
-
-	if isVerbose && err != nil {
-		fmt.Println("plex server:", err.Error())
-	}
-
-	if err != nil && err == badger.ErrKeyNotFound || err == badger.ErrEmptyKey {
-		// init plex server in datastore
-		if err := db.SavePlexServer(datastore.Server{}); err != nil {
-			fmt.Printf("failed initializing plex server: %v", err)
-		}
-	} else if err != nil {
-		fmt.Printf("failed retrieving plex server from data store: %v\n", err)
-	}
-
-	plexToken, err := db.GetPlexToken()
-
-	if isVerbose && err != nil {
-		fmt.Println("plex token error:", err.Error())
-	}
-
-	if err != nil && err == badger.ErrKeyNotFound || err == badger.ErrEmptyKey {
-		// init plex token in data store
-		if err := db.SavePlexServer(datastore.Server{}); err != nil {
-			fmt.Printf("failed initializing plex token: %v", err)
-		}
-	} else if err != nil {
-		fmt.Printf("failed retrieving plex token from data store: %v\n", err)
-	}
-
-	plexConn, err := plex.New(plexServerInfo.URL, plexToken)
-
-	if err != nil {
-		fmt.Printf("failed initializing plex connection: %v\n", err)
-	} else if err == nil && isVerbose {
-		isPlexInitialized = true
-		// no error
-
-		fmt.Println("plex connection initialized")
-
-		isConnected, err := plexConn.Test()
-
-		if err != nil {
-			fmt.Printf("testing plex connection failed: %v\n", err)
-		}
-
-		fmt.Println("can i connect to my plex server?", isConnected)
-	}
-
-	plexConnection := &plexServer{
-		plexConn,
-		sync.Mutex{},
-	}
+	plexConnection := initPlex(db)
 
 	router := mux.NewRouter()
 
@@ -185,110 +132,10 @@ func main() {
 	events := plex.NewNotificationEvents()
 
 	// OnPlaying updates the datastore with user info and status when a plex user starts playing media
-	events.OnPlaying(func(n plex.NotificationContainer) {
-		currentTime := n.PlaySessionStateNotification[0].ViewOffset
-		mediaID := n.PlaySessionStateNotification[0].RatingKey
-		sessionID := n.PlaySessionStateNotification[0].SessionKey
-		clientID := ""
-		userID := "n/a"
-		username := "unknown"
-		playerType := ""
+	events.OnPlaying(OnPlaying(react, plexConnection))
 
-		var duration int64
-
-		metadata, err := plexConnection.GetMetadata(mediaID)
-
-		if err != nil {
-			fmt.Printf("failed to get metadata for key %s: %v\n", mediaID, err)
-			return
-		}
-
-		duration = metadata.MediaContainer.Metadata[0].Duration
-		title := metadata.MediaContainer.Metadata[0].Title
-
-		currentTimeToSeconds := time.Duration(currentTime) * time.Millisecond
-		durationToSeconds := time.Duration(duration) * time.Millisecond
-
-		sessions, err := plexConnection.GetSessions()
-
-		if err != nil {
-			fmt.Printf("failed to fetch sessions on plex server: %v\n", err)
-			return
-		}
-
-		for _, session := range sessions.MediaContainer.Video {
-			if sessionID != session.SessionKey {
-				continue
-			}
-
-			userID = session.User.ID
-			username = session.User.Title
-			sessionID = session.Session.ID
-			clientID = session.Player.MachineIdentifier
-			playerType = session.Player.Product
-
-			break
-		}
-
-		fmt.Printf("%s is playing %s (%s)\n\t%v/%v\n", username, title, mediaID, currentTimeToSeconds, durationToSeconds)
-
-		react <- plexUserNotification{
-			ratingKey:   mediaID,
-			currentTime: currentTime,
-			userID:      userID,
-			sessionID:   sessionID,
-			clientID:    clientID,
-			playerType:  playerType,
-		}
-	})
-
-	// this anonymous goroutine reads from the datastore and ends plex streams that violate the terms set by one time plex
-	go func() {
-		if isVerbose {
-			fmt.Println("starting goroutine to listen for activity from plex users...")
-		}
-
-		for {
-			select {
-			case r := <-react:
-				fmt.Printf("user id: %s, rating key (media id): %s, and current time: %d\n", r.userID, r.ratingKey, r.currentTime)
-				userInStore, err := db.GetUser(r.userID)
-
-				if err != nil {
-					fmt.Printf("failed to retrieve user from datastore with id of %s\n", r.userID)
-					continue
-				}
-
-				// end stream
-				if userInStore.AssignedMedia.ID != r.ratingKey {
-					fmt.Printf("\t%s (%s) is not allowed to watch %s\n\tattempting to terminate stream...\n", userInStore.Name, userInStore.PlexUserID, r.ratingKey)
-
-					if *hasPlexPass {
-						// plex pass - will stop playback on whatever player the user is using
-						if err := plexConnection.TerminateSession(r.sessionID, "You are not allowed to watch this"); err != nil {
-							fmt.Printf("failed to terminate session id %s: %v\n", r.sessionID, err)
-						}
-					} else {
-						fmt.Println("\tclient id:", r.clientID)
-
-						// we cannot use StopPlayback if the user is watching via web browser
-						// so we must remove their access to our library
-						if r.playerType == "Plex Web" {
-							fmt.Println("\tuser is watching via web player -- we must remove their access to library")
-							// plexConnection.RemoveFriendAccessToLibrary()
-							continue
-						}
-
-						// non-plex pass - we can only prevent the user from downloading more data from server
-						if plexConnection.StopPlayback(r.clientID); err != nil {
-							fmt.Printf("failed to stop playback for user %s (%s), session %s\n", userInStore.Name, r.userID, r.sessionID)
-						}
-					}
-
-				}
-			}
-		}
-	}()
+	// this goroutine reads from the datastore and ends plex streams that violate the terms set by one time plex
+	go streamGuard(react, db, plexConnection, *hasPlexPass)
 
 	if isVerbose {
 		fmt.Println("subscribing to plex server notifications...")
