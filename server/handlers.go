@@ -398,6 +398,32 @@ func filterMetadata(results plex.MetadataChildren) []plexMetadataChildren {
 	return filteredMetadata
 }
 
+// GetPlexPin get a plex pin from plex.tv
+func GetPlexPin(db datastore.Store) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := clientResponse{}
+
+		pin, err := plex.RequestPIN()
+
+		if err != nil {
+			response.Err = fmt.Sprintf("failed to fetch plex pin: %v", err)
+			response.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		// store response
+
+		// pin expires in 5 minutes
+
+		type pinResponse struct {
+			Pin string `json:"pin"`
+		}
+
+		response.Result = pinResponse{Pin: pin.Code}
+		response.Write(w, http.StatusOK)
+	}
+}
+
 // GetPlexFriends fetches plex friends associated with the set plex token
 func GetPlexFriends(plexConnection *plexServer) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -719,7 +745,14 @@ func OnPlaying(react chan plexUserNotification, plexConnection *plexServer) func
 			return
 		}
 
-		duration = metadata.MediaContainer.Metadata[0].Duration
+		durationParsed, err := strconv.Atoi(metadata.MediaContainer.Metadata[0].Duration)
+
+		if err != nil {
+			fmt.Printf("duration parse failed: %v\n", err)
+			return
+		}
+
+		duration = int64(durationParsed)
 		title := metadata.MediaContainer.Metadata[0].Title
 
 		currentTimeToSeconds := time.Duration(currentTime) * time.Millisecond
@@ -732,7 +765,7 @@ func OnPlaying(react chan plexUserNotification, plexConnection *plexServer) func
 			return
 		}
 
-		for _, session := range sessions.MediaContainer.Video {
+		for _, session := range sessions.MediaContainer.Metadata {
 			if sessionID != session.SessionKey {
 				continue
 			}

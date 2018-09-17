@@ -3,6 +3,7 @@ import Users from './users'
 import Friends from './friends'
 import Search from './search'
 import Server from './server'
+import Setup from './setup'
 
 /*
     Example state
@@ -40,6 +41,11 @@ import Server from './server'
             errMessage: '',
             message: '',
             isFetching: false
+        },
+        setup: {
+            errMessage: '',
+            isFetching: true,
+            pin: 'abc1'
         }
     }
 */
@@ -48,5 +54,6 @@ export const rootReducer = combineReducers({
     users: Users,
     friends: Friends,
     search: Search,
-    server: Server
+    server: Server,
+    setup: Setup
 })

@@ -162,6 +162,7 @@ func main() {
 
 	apiRouter.HandleFunc("/plex/server", ConfigurePlexServer(db, plexConnection)).Methods("POST", "PUT", "DELETE", "GET", "OPTIONS")
 	apiRouter.HandleFunc("/plex/test", TestPlexConnection).Methods("GET")
+	apiRouter.HandleFunc("/plex/pin", GetPlexPin(db)).Methods("GET")
 
 	// add new one-time user
 	apiRouter.HandleFunc("/users/add", AddUser(db, plexConnection)).Methods("POST")

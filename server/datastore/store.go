@@ -181,7 +181,7 @@ func (s Store) GetSecret() []byte {
 // SaveSecret saves the app secret
 func (s Store) SaveSecret(secret []byte) error {
 	return s.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(s.keys.appSecret, secret)
+		return txn.Set(s.keys.appSecret, secret, 0)
 	})
 }
 
@@ -238,7 +238,7 @@ func (s Store) SavePlexToken(token string) error {
 	}
 
 	if err := s.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(s.keys.plexToken, []byte(tokenHash))
+		return txn.Set(s.keys.plexToken, []byte(tokenHash), 0)
 	}); err != nil {
 		return err
 	}
@@ -289,7 +289,7 @@ func (s Store) SavePlexServer(plexServer Server) error {
 	}
 
 	return s.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(s.keys.plexServer, serializedServer)
+		return txn.Set(s.keys.plexServer, serializedServer, 0)
 	})
 }
 
@@ -304,7 +304,7 @@ func (s Store) SaveUser(user User) error {
 			return err
 		}
 
-		return txn.Set(key, serializedUser)
+		return txn.Set(key, serializedUser, 0)
 	})
 }
 
@@ -322,7 +322,7 @@ func (s Store) SaveUsers(users []User) error {
 				return err
 			}
 
-			if err := txn.Set(key, serializedUser); err != nil {
+			if err := txn.Set(key, serializedUser, 0); err != nil {
 				return err
 			}
 		}

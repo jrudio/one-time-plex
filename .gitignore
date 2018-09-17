@@ -7,3 +7,5 @@ otp-data
 dist
 .goxc.local.json
 server/server*
+node_modules/*
+landing-page

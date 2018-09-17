@@ -1,0 +1,3 @@
+export const FETCH_PLEX_PIN = "FETCH_PLEX_PIN"
+export const RECEIVED_PLEX_PIN = "RECEIVED_PLEX_PIN"
+export const PLEX_PIN_ERROR = "PLEX_PIN_ERROR"
