@@ -2,6 +2,7 @@ import React, { Component } from 'react'
 import logo from './logo.svg'
 import AddUser from './containers/adduser'
 import Server from './containers/server'
+import Setup from './containers/setup'
 import AssignedMedia from './containers/assignedmedia'
 import { Grid, Button, Cell } from 'react-mdl'
 import './App.css'
@@ -15,7 +16,9 @@ class App extends Component {
     // page can be one of:
     // - home
     // - settings
+    // - setup
     this.setState({
+      // page: 'setup'
       page: 'home'
     })
   }
@@ -28,6 +31,17 @@ class App extends Component {
     this.setState({
       page
     })
+  }
+  renderSetup () {
+    return (
+      <Grid>
+        <Cell col={12}>
+          <Button onClick={() => this.showPage('home')}>Go Home</Button>
+        </Cell>
+
+        <Setup />
+      </Grid>
+    )
   }
   renderSettings () {
     return (
@@ -47,7 +61,7 @@ class App extends Component {
     return (
       <Grid>
         <Cell col={12}>
-          <Button onClick={() => this.showPage('settings')}>Server Settings</Button>
+          <Button onClick={() => this.showPage('setup')}>Server Settings</Button>
         </Cell>
         <Cell col={4}>
           <h4>Plex Friends:</h4>
@@ -82,6 +96,8 @@ class App extends Component {
                 return this.renderHome()
               case 'settings':
                 return this.renderSettings()
+              case 'setup':
+                return this.renderSetup()
               default:
                 return this.renderUnknownPage()
             }

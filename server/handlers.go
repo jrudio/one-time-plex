@@ -398,11 +398,61 @@ func filterMetadata(results plex.MetadataChildren) []plexMetadataChildren {
 	return filteredMetadata
 }
 
+func redactPlexPinInfo(pin plex.PinResponse) plex.PinResponse {
+	pin.ID = 0
+	pin.AuthToken = ""
+	pin.Location = plex.PinResponse{}.Location
+	pin.ClientIdentifier = ""
+
+	return pin
+}
+
 // GetPlexPin get a plex pin from plex.tv
 func GetPlexPin(db datastore.Store) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		response := clientResponse{}
 
+		// check if we are already have a plex token
+		plexToken, err := db.GetPlexToken()
+
+		if err == nil {
+			// and check if the token is valid
+			plexConn, err := plex.New("", plexToken)
+
+			if err != nil {
+				fmt.Printf("GetPlexPin() auth token found in datastore: %v\n", err)
+				response.Err = fmt.Sprintf("found auth token in datastore: %v", err)
+				response.Write(w, http.StatusBadRequest)
+				return
+			}
+			// fmt.Printf("could not get plex token: %v\n", err)
+
+			if _, err := plexConn.MyAccount(); err != nil {
+				fmt.Printf("GetPlexPin() auth token found in datastore: %v\n", err)
+				response.Err = fmt.Sprintf("found auth token in datastore: %v", err)
+				response.Write(w, http.StatusBadRequest)
+				return
+			}
+
+			// the token is authorized so do not request plex pin
+			response.Err = "we are already authorized; not fetching plex pin"
+			response.Write(w, http.StatusUnprocessableEntity)
+			return
+		}
+
+		// check to see if we already have a stored (and valid) pin from plex.tv
+		plexPin, err := db.GetPlexPin()
+
+		if err == nil {
+			// redact some info
+			plexPin = redactPlexPinInfo(plexPin)
+
+			response.Result = plexPin
+			response.Write(w, http.StatusOK)
+			return
+		}
+
+		// grab a pin from plex.tv
 		pin, err := plex.RequestPIN()
 
 		if err != nil {
@@ -412,14 +462,174 @@ func GetPlexPin(db datastore.Store) func(w http.ResponseWriter, r *http.Request)
 		}
 
 		// store response
-
-		// pin expires in 5 minutes
-
-		type pinResponse struct {
-			Pin string `json:"pin"`
+		if err := db.SavePlexPin(pin); err != nil {
+			response.Err = fmt.Sprintf("failed to save plex pin response: %v", err)
+			response.Write(w, http.StatusInternalServerError)
+			return
 		}
 
-		response.Result = pinResponse{Pin: pin.Code}
+		response.Result = redactPlexPinInfo(pin)
+		response.Write(w, http.StatusOK)
+	}
+}
+
+func isPinExpired(pin plex.PinResponse) bool {
+	// convert to utc as the plex timestamp has no offset
+	now := time.Now().UTC()
+
+	// fmt.Println(pin.ExpiresAt)
+
+	parsedTimestamp, err := time.Parse(time.RFC3339, pin.ExpiresAt)
+
+	if err != nil {
+		fmt.Printf("isPinExpired() parse timestamp failed: %v\n", err)
+		return false
+	}
+
+	fmt.Printf("expires at: %dh %dm; currently: %dh %dm\n", parsedTimestamp.Hour(), parsedTimestamp.Minute(), now.Hour(), now.Minute())
+
+	return now.After(parsedTimestamp)
+}
+
+// CheckPlexPin gets plex pin from datastore (if any) and checks plex.tv if valid
+// returns error if expired or not authorized yet
+func CheckPlexPin(db datastore.Store, plexConnection *plexServer) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := clientResponse{}
+
+		// before we check for a plex pin
+		// check if we are already have a plex token because
+		// we might be authorized
+		plexToken, err := db.GetPlexToken()
+
+		if err == nil {
+			// and check if the token is valid
+			plexConn, err := plex.New("", plexToken)
+
+			if err != nil {
+				fmt.Printf("CheckPlexPin() auth token found in datastore: %v\n", err)
+				response.Err = fmt.Sprintf("found auth token in datastore: %v", err)
+				response.Write(w, http.StatusBadRequest)
+				return
+			}
+			// fmt.Printf("could not get plex token: %v\n", err)
+
+			if _, err := plexConn.MyAccount(); err != nil {
+				fmt.Printf("CheckPlexPin() auth token found in datastore: %v\n", err)
+				response.Err = fmt.Sprintf("found auth token in datastore: %v", err)
+				response.Write(w, http.StatusBadRequest)
+				return
+			}
+
+			// the token is authorized so do not request plex pin
+			response.Err = "we are already authorized; not fetching plex pin"
+			response.Write(w, http.StatusUnprocessableEntity)
+			return
+		}
+
+		// get plex pin info from db
+		plexPin, err := db.GetPlexPin()
+
+		// we don't have a pin in our store to check
+		if err != nil {
+			response.Err = fmt.Sprintf("could not find plex pin: %v", err)
+			response.Write(w, http.StatusNotFound)
+			return
+		}
+
+		// pin has expired
+		if isPinExpired(plexPin) {
+			// fmt.Println("the plex pin is expired; request a new pin")
+			if err := db.ClearPlexPin(); err != nil {
+				fmt.Printf("checkPin() failed to clear plex pin from store: %v\n", err)
+			}
+			response.Err = fmt.Sprintf("pin has expired")
+			response.Write(w, http.StatusNotFound)
+			return
+		}
+
+		// check if valid and send error to client if expired
+		pin, err := plex.CheckPIN(plexPin.ID, plexConnection.ClientIdentifier)
+
+		// either invalid/expired or still not linked
+		if err != nil {
+			msg := "unauthorized"
+
+			// our isPinExpired() should catch an expired pin
+			// so this should be an error for not yet or an unauthorized pin
+
+			// plex error code 1020 == "Code not found or expired"
+			if len(pin.Errors) > 0 && pin.Errors[0].Code == 1020 {
+				msg = pin.Errors[0].Message
+				fmt.Printf("checkPlexPin() pin (%s): %s\n", plexPin.Code, msg)
+
+			}
+
+			response.Err = msg
+			response.Write(w, http.StatusUnauthorized)
+			return
+		}
+
+		// if pin is authorized save plex token to datastore
+		if err := db.SavePlexToken(pin.AuthToken); err != nil {
+			response.Err = fmt.Sprintf("failed to save plex token")
+			response.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		response.Result = true
+		response.Write(w, http.StatusOK)
+	}
+}
+
+// GetPlexServers returns a list of plex servers linked to our plex auth token
+// gives client error if we are not authorized
+func GetPlexServers(db datastore.Store) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := clientResponse{}
+
+		plexToken, err := db.GetPlexToken()
+
+		if err != nil {
+			response.Err = fmt.Sprintf("not authorized; no plex token found: %v", err)
+			response.Write(w, http.StatusUnauthorized)
+			return
+		}
+
+		plexConnection, err := plex.New("", plexToken)
+
+		if err != nil {
+			response.Err = fmt.Sprintf("create plex client instance failed: %v", err)
+			response.Write(w, http.StatusUnauthorized)
+			return
+		}
+
+		servers, err := plexConnection.GetServers()
+
+		if err != nil {
+			response.Err = fmt.Sprintf("could not get plex servers: %v", err)
+			response.Write(w, http.StatusInternalServerError)
+			return
+		}
+
+		serverCount := len(servers)
+
+		filteredServers := make([]plex.PMSDevices, serverCount)
+
+		for i := 0; i < serverCount; i++ {
+			server := servers[i]
+
+			accessToken := "xxxxxxxx"
+			accessToken = accessToken + server.AccessToken[len(server.AccessToken)-3:]
+
+			filteredServers[i] = plex.PMSDevices{
+				Name:        server.Name,
+				Connection:  server.Connection,
+				AccessToken: accessToken,
+			}
+		}
+
+		response.Result = filteredServers
 		response.Write(w, http.StatusOK)
 	}
 }
@@ -552,31 +762,32 @@ func TestPlexConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 type plexServerResp struct {
-	URL   string `json:"url"`
+	Name  string `json:"name"`
 	Token string `json:"token"`
+	URL   string `json:"url"`
 }
 
 // ConfigurePlexServer retrieve, add, edit, and delete plex server from one time plex
 func ConfigurePlexServer(db datastore.Store, plexConnection *plexServer) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		var resp clientResponse
+		var response clientResponse
 
 		switch r.Method {
 		case "GET":
 			server, err := db.GetPlexServer()
 
 			if err != nil {
-				resp.Err = "failed to get plex server url: " + err.Error()
-				resp.Write(w, http.StatusInternalServerError)
+				response.Err = "failed to get plex server url: " + err.Error()
+				response.Write(w, http.StatusInternalServerError)
 				return
 			}
 
 			token, err := db.GetPlexToken()
 
 			if err != nil {
-				resp.Err = "failed to get plex server token: " + err.Error()
-				resp.Write(w, http.StatusInternalServerError)
+				response.Err = "failed to get plex server token: " + err.Error()
+				response.Write(w, http.StatusInternalServerError)
 				return
 			}
 
@@ -586,86 +797,131 @@ func ConfigurePlexServer(db datastore.Store, plexConnection *plexServer) func(w 
 			}
 
 			if err != nil {
-				resp.Err = "failed to serialize plex server: " + err.Error()
-				resp.Write(w, http.StatusInternalServerError)
+				response.Err = "failed to serialize plex server: " + err.Error()
+				response.Write(w, http.StatusInternalServerError)
 				return
 			}
 
-			resp.Result = serverResp
+			response.Result = serverResp
 		case "POST":
 			if err := r.ParseForm(); err != nil {
-				resp.Err = fmt.Sprintf("parsing body failed: %v", err)
-				resp.Write(w, http.StatusBadRequest)
+				response.Err = fmt.Sprintf("parsing body failed: %v", err)
+				response.Write(w, http.StatusBadRequest)
 				return
 			}
 
 			plexURL := r.PostFormValue("url")
 			plexToken := r.PostFormValue("token")
 
-			resp.Result = fmt.Sprintf("received %s, %s", plexURL, plexToken)
+			response.Result = fmt.Sprintf("received %s, %s", plexURL, plexToken)
 		case "PUT":
-			var plexURL string
-			var plexToken string
+			plexToken, err := db.GetPlexToken()
 
-			if r.Header.Get("Accept") == "application/json" {
-				var serverInfo plexServerResp
-
-				if err := json.NewDecoder(r.Body).Decode(&serverInfo); err != nil {
-					resp.Err = "body parse failed: " + err.Error()
-					resp.Write(w, http.StatusBadRequest)
-					return
-				}
-
-				plexURL = serverInfo.URL
-				plexToken = serverInfo.Token
-			} else {
-				if err := r.ParseForm(); err != nil {
-					resp.Err = fmt.Sprintf("parsing body failed: %v", err)
-					resp.Write(w, http.StatusBadRequest)
-					return
-				}
-
-				plexURL = r.FormValue("url")
-				plexToken = r.FormValue("token")
+			if err != nil {
+				response.Err = fmt.Sprintf("not authorized; no plex token found: %v", err)
+				response.Write(w, http.StatusUnauthorized)
+				return
 			}
 
-			if plexURL != "" {
-				plexConnection.setURL(plexURL)
+			plexTestConnection, err := plex.New("", plexToken)
+
+			if err != nil {
+				response.Err = fmt.Sprintf("create plex client instance failed: %v", err)
+				response.Write(w, http.StatusUnauthorized)
+				return
+			}
+
+			servers, err := plexTestConnection.GetServers()
+
+			if err != nil {
+				response.Err = fmt.Sprintf("could not get plex servers: %v", err)
+				response.Write(w, http.StatusInternalServerError)
+				return
+			}
+
+			var serverInfo plexServerResp
+
+			if r.Header.Get("Accept") == "application/json" {
+
+				if err := json.NewDecoder(r.Body).Decode(&serverInfo); err != nil {
+					response.Err = "body parse failed: " + err.Error()
+					response.Write(w, http.StatusBadRequest)
+					return
+				}
+			} else {
+				if err := r.ParseForm(); err != nil {
+					response.Err = fmt.Sprintf("parsing body failed: %v", err)
+					response.Write(w, http.StatusBadRequest)
+					return
+				}
+
+				serverInfo.Name = r.FormValue("name")
+				serverInfo.URL = r.FormValue("url")
+			}
+
+			// match requested server via name and url
+			requestMatchesKnownServer := false
+
+			for _, server := range servers {
+				if requestMatchesKnownServer {
+					break
+				}
+
+				if serverInfo.Name == server.Name {
+					for _, connection := range server.Connection {
+						if serverInfo.URL == connection.URI {
+							requestMatchesKnownServer = true
+							break
+						}
+					}
+				}
+			}
+
+			if !requestMatchesKnownServer {
+				response.Err = fmt.Sprintf("requested unknown server - url: %s name: %s", serverInfo.URL, serverInfo.Name)
+				response.Write(w, http.StatusBadRequest)
+				return
+			}
+
+			// set the plex connection with requested settings
+			if serverInfo.URL != "" {
+				plexConnection.setURL(serverInfo.URL)
 
 				if err := db.SavePlexServer(datastore.Server{
-					Name: "default",
-					URL:  plexURL,
+					Name: serverInfo.Name,
+					URL:  serverInfo.URL,
 				}); err != nil {
 					fmt.Printf("saving plex url failed: %v", err)
 				}
 			} else {
-				resp.Err = "url is required"
-				resp.Write(w, http.StatusBadRequest)
+				response.Err = "url is required"
+				response.Write(w, http.StatusBadRequest)
 				return
 			}
 
 			if plexToken != "" {
 				plexConnection.setToken(plexToken)
 
-				if err := db.SavePlexToken(plexToken); err != nil {
-					fmt.Printf("saving plex token failed: %v", err)
-				}
+				// if err := db.SavePlexToken(plexToken); err != nil {
+				// 	fmt.Printf("saving plex token failed: %v", err)
+				// }
 			} else {
-				resp.Err = "token is required"
-				resp.Write(w, http.StatusBadRequest)
+				response.Err = "token is required"
+				response.Write(w, http.StatusBadRequest)
 				return
 			}
 
-			resp.Result = true
+			fmt.Printf("successfully set plex server to token: %s - url %s\n", plexToken, serverInfo.URL)
+			response.Result = true
 		case "OPTIONS":
-			resp.Result = true
+			response.Result = true
 		default:
-			resp.Err = "unknown method"
-			resp.Write(w, http.StatusMethodNotAllowed)
+			response.Err = "unknown method"
+			response.Write(w, http.StatusMethodNotAllowed)
 			return
 		}
 
-		resp.Write(w, http.StatusOK)
+		response.Write(w, http.StatusOK)
 	}
 }
 

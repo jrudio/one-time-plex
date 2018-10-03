@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/dgraph-io/badger"
+	plex "github.com/jrudio/go-plex-client"
 )
 
 var isVerbose bool
@@ -22,6 +23,7 @@ type Store struct {
 type StoreKeys struct {
 	appSecret  []byte
 	plexToken  []byte
+	plexPin    []byte
 	plexServer []byte
 	userPrefix []byte
 	allUsers   []byte
@@ -125,6 +127,7 @@ func InitDataStore(dirName string, _isVerbose bool) (Store, error) {
 	db.keys = StoreKeys{
 		appSecret:  []byte("app-secret"),
 		plexToken:  []byte("plex-token"),
+		plexPin:    []byte("plex-pin"),
 		plexServer: []byte("plex-server"),
 		userPrefix: []byte("user-"), // holds the user info
 		allUsers:   []byte("users"), // contains all user keys
@@ -248,6 +251,64 @@ func (s Store) SavePlexToken(token string) error {
 	}
 
 	return nil
+}
+
+// GetPlexPin retrieves plex pin if one was saved
+// returns error if not found
+func (s Store) GetPlexPin() (plex.PinResponse, error) {
+	var plexPin plex.PinResponse
+
+	if err := s.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(s.keys.plexPin)
+
+		if err != nil {
+			return err
+		}
+
+		plexPinBytes, err := item.Value()
+
+		if err != nil {
+			return err
+		}
+
+		var plexPinResponse plex.PinResponse
+
+		if err := json.Unmarshal(plexPinBytes, &plexPinResponse); err != nil {
+			return err
+		}
+
+		plexPin = plexPinResponse
+
+		return nil
+	}); err != nil {
+		return plexPin, err
+	}
+
+	return plexPin, nil
+}
+
+// SavePlexPin save plex pin response in datastore
+func (s Store) SavePlexPin(plexPin plex.PinResponse) error {
+	plexPinByte, err := json.Marshal(plexPin)
+
+	if err != nil {
+		return err
+	}
+
+	if err := s.db.Update(func(txn *badger.Txn) error {
+		return txn.Set(s.keys.plexPin, plexPinByte, 0)
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ClearPlexPin clear plex pin from our store
+func (s Store) ClearPlexPin() error {
+	return s.db.Update(func(txn *badger.Txn) error {
+		return txn.Delete(s.keys.plexPin)
+	})
 }
 
 // GetPlexServer fetches a plex server stored in the datastore

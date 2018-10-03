@@ -43,9 +43,22 @@ import Setup from './setup'
             isFetching: false
         },
         setup: {
+            connectionIndex: 0,
             errMessage: '',
+            isAuthorized: false,
+            isExpired: false,
+            isCheckingPin: false,
             isFetching: true,
-            pin: 'abc1'
+            pin: 'abc1',
+            selectedServer: {
+                connection: [{
+                    local: 0,
+                    uri: ''
+                }],
+                name: '',
+                token: ''
+            },
+            servers: []
         }
     }
 */

@@ -5,9 +5,11 @@ import {
     Button,
     Cell,
     Grid,
+    Icon,
     Spinner,
     Textfield
 } from 'react-mdl'
+// import { getPlexServers } from '../actions/setup';
 
 const styles = {
     success: {
@@ -26,96 +28,72 @@ const styles = {
     }
 }
 
-const availableServers = [
-    {
-        name: 'Server2',
-        connection: [
-            {
-                local: true,
-                url: 'https://192168120-local.plex.local/'
-            },
-            {
-                local: false,
-                url: 'https://1065311-remote.plex.tv/'
-            }
-        ]
-    },
-    {
-        name: 'Justin\'s Server',
-        connection: [
-            {
-                local: true,
-                url: 'https://19216643120-local.plex.local/',
-            },
-            {
-                local: false,
-                url: 'https://15555311-remote.plex.tv/'
-            }
-        ]
-    },
-    {
-        name: 'Justin\'s x1',
-        connection: [
-            {
-                local: true,
-                url: 'https://19436564620-local.plex.local/'
-            },
-            {
-                local: false,
-                url: 'https://8888311-remote.plex.tv/'
-            }
-        ]
-    },
-    {
-        name: 'Random Server',
-        connection: [
-            {
-                local: true,
-                url: 'https://1946664360-local.plex.local/'
-            },
-            {
-                local: false,
-                url: 'https://103492841-remote.plex.tv/'
-            }
-        ]
-    }
-]
-
 export default class Setup extends Component {
+    constructor () {
+        super()
+
+        this.hasCalledGetPlexServers = false
+    }
+    stopPlexPinCheck () {
+        console.log('stopping plex pin check')
+        clearInterval(this.pinTimer)
+    }
+    componentWillReceiveProps (newProps) {
+        const { getPlexServers } = this.props
+        const {
+            isAuthorized,
+            selectedServer
+        } = newProps
+
+        if (!!isAuthorized && selectedServer.name === '') {
+            if (!this.hasCalledGetPlexServers) {
+                getPlexServers()
+                this.hasCalledGetPlexServers = true
+            }
+
+            this.setState({
+                screen: 'serverList'
+            })
+        } else if (!!isAuthorized && selectedServer.name !== '') {
+            this.setState({
+                screen: 'localOrRemoteIP'
+            })
+        }
+    }
     componentWillMount () {
         const {
             fetchPlexPin
         } = this.props
 
         fetchPlexPin()
-        // check if we have a plex token
 
-        // if not just display the plex pin screen
-        // and wait for 
+        this.pinTimer = setInterval(() => {
+            const {
+                checkPlexPin,
+                isAuthorized
+            } = this.props
 
-        // 
-        
+            if (isAuthorized) {
+                console.log('we are authorized')
+                this.stopPlexPinCheck()
+                return
+            }
+
+            // check if we have a plex token
+            checkPlexPin()
+        }, 3 * 1000)
+
         // available screens:
         // - plexPin
         // - serverList
         // - localOrRemoteIP
         // - final (show settings)
         this.setState({
-            availableServers,
-            isAuthorized: false,
-            selectedServer: {
-                connection: [
-                    {
-                        local: false,
-                        url: ''
-                    }
-                ],
-                name: '',
-                url: '',
-                token: 'xxxxxabc123'
-            },
             screen: 'plexPin',
         })
+    }
+    componentWillUnmount () {
+        this.stopPlexPinCheck()
     }
     showScreen (screen = '') {
         if (!screen) {
@@ -129,24 +107,30 @@ export default class Setup extends Component {
     }
     handleServerSelect (index) {
         const {
-            availableServers,
-            selectedServer
-        } = this.state
+            servers,
+            selectedServer,
+            selectServer
+        } = this.props
 
-        if (index === null || index < 0 || index > availableServers.length - 1) {
+
+        if (index === null || index < 0 || index > servers.length - 1) {
             console.error('handleServerSelect() invalid server selection')
             return
         }
 
-        let newSelectedServer = Object.assign({}, selectedServer, availableServers[index])
+        let newSelectedServer = Object.assign({}, selectedServer, servers[index])
 
-
-        this.setState({ selectedServer: newSelectedServer })
+        // this.setState({ selectedServer: newSelectedServer })
+        selectServer(newSelectedServer)
 
         this.showScreen('localOrRemoteIP')
     }
     handleIpSelect (index) {
-        const { selectedServer } = this.state
+        const {
+            selectConnection,
+            selectedServer,
+            setPlexServer
+        } = this.props
 
         if (index === null || index < 0 || index > selectedServer.connection.length - 1) {
             console.error('handleIpSelect() invalid ip selection')
@@ -155,53 +139,91 @@ export default class Setup extends Component {
 
         console.log(selectedServer)
 
-        console.log(index)
+        // let newSelectedServer = Object.assign({}, selectedServer, {
+        //     url: selectedServer.connection[index].url
+        // })
 
-        let newSelectedServer = Object.assign({}, selectedServer, {
-            url: selectedServer.connection[index].url
-        })
+        // this.setState({
+        //     selectedServer: newSelectedServer
+        // })
+        selectConnection(index)
 
-        this.setState({
-            selectedServer: newSelectedServer
-        })
+        if (selectedServer.name === '' || selectedServer.connection.length < 1) {
+            console.error('selected server is invalid; rejecting setPlexServer()')
+            console.log(selectedServer)
+            return
+        }
+
+        setPlexServer(selectedServer, index)
 
         this.showScreen('final')
     }
+    handleEditSettings () {
+        const { clearServerSelection } = this.props
+
+        clearServerSelection()
+
+        this.setState({
+            screen: 'serverList'
+        })
+    }
     renderPlexPin() {
         const {
+            errMessage,
             isFetching,
+            isExpired,
             pin
         } = this.props
 
         console.log(this.props)
 
-        if (isFetching) {
-            return (
-                <div>
-                    <h5>Fetching a Plex code...</h5>
-                    <Spinner />
-                </div>
-            )
-        }
+        // if (isFetching) {
+        //     return (
+        //         <div>
+        //             <h5>Fetching a Plex code...</h5>
+        //             <Spinner />
+        //         </div>
+        //     )
+        // }
 
         return (
             <div>
-                <h5>Here is your Plex PIN: <pre>{pin || 'N/A'}</pre></h5>
+                <h5>Here is your Plex PIN: {(() => isExpired && <a onClick={() => console.log('refresh')}><Icon name="refresh" /></a>)()}</h5>
+                <p>{errMessage && errMessage}</p>
+                {(() => {
+                    if (isFetching) {
+                        return <pre>{pin || 'N/A'}</pre>
+                    }
+                    
+                    return <Spinner />
+                })()}
+                
                 <p>Go to <a href="https://plex.tv/link" target="_blank">plex.tv/link</a> to grant One Time Plex access to your servers.</p>
             </div>
         )
     }
     renderServerList() {
-        const { availableServers } = this.state
+        const { servers } = this.props
+
+        // console.log(this.props.servers)
 
         return (
             <div>
                 <h5>Please choose the plex server to monitor:</h5>
                 <ul style={styles.list}>
                     {(() => {
+                        if (servers.length === 0) {
+                            return (
+                                <div>
+                                    Fetching available servers...
+                                    <Spinner />
+                                </div>
+                            )
+                        }
+                        
                         let serverNodes = []
 
-                        availableServers.forEach((server, i) => {
+                        servers.length > 0 && servers.forEach((server, i) => {
                             serverNodes.push(<li key={i}><Button colored onClick={() => this.handleServerSelect(i)}> {server.name} </Button></li>)
                         })
 
@@ -212,8 +234,8 @@ export default class Setup extends Component {
         )
     }
     renderLocalOrRemote () {
-        const { selectedServer } = this.state
-        
+        const { selectedServer } = this.props
+
         return (
             <div>
                 <h5>Choose a remote or local url:</h5>
@@ -221,13 +243,14 @@ export default class Setup extends Component {
                     {(() => {
                         let ipNodes = []
 
-                        selectedServer.connection.forEach((ip, i) => {
-                            if (ip.local) {
-                                ipNodes.push(<li key={i}><Button colored onClick={() => this.handleIpSelect(i)}>Local - {ip.url}</Button></li>)
-                                return
+                        selectedServer && selectedServer.connection.forEach((ip, i) => {
+                            let addressType = 'Remote'
+
+                            if (ip.local === 1) {
+                                addressType = 'Local'
                             }
 
-                            ipNodes.push(<li key={i}><Button colored onClick={() => this.handleIpSelect(i)}>Remote - {ip.url}</Button></li>)
+                            ipNodes.push(<li key={i}>{addressType} - {ip.uri}<Button colored onClick={() => this.handleIpSelect(i)}>Select</Button></li>)
                         })
                         
                         return ipNodes
@@ -237,22 +260,28 @@ export default class Setup extends Component {
         )
     }
     renderFinal () {
-        const { selectedServer } = this.state
+        const {
+            connectionIndex,
+            selectedServer
+        } = this.props
 
         return (
             <div>
                 <h5>Here are your settings:</h5>
 
                 <div>Server Name: <Textfield label='Server Name' readOnly value={selectedServer.name} /></div>
-                <div>Plex Server URL: <Textfield label='Plex Server URL' readOnly value={selectedServer.url} /></div>
-                <div>Plex Token: <Textfield label='Plex Token' readOnly value={'xxxxxxabc123'} /></div>
+                <div>Plex Server URL: <Textfield label='Plex Server URL' readOnly value={selectedServer.connection[connectionIndex].uri} /></div>
+                <div>Plex Token: <Textfield label='Plex Token' readOnly value={selectedServer.token} /></div>
 
-                <a onClick={() => this.showScreen('serverList')} href="#">Edit Settings</a>
+                <a onClick={() => this.handleEditSettings()} href="#">Edit Settings</a>
             </div>
         )
     }
     render () {
         const { screen } = this.state
+
+        console.log(this.props)
+        console.log('screen', screen)
 
         return (
             <Grid>
